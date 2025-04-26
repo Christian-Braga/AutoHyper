@@ -72,7 +72,8 @@ class HPO:
     # > Main functions
 
     # Grid search
-    def grid_search(self):
+    def grid_search(self, X, y, n_splits):
+        # create in the function the inner cv with the hpo strategy -> output the best hp configuration
         hp_keys = list(self.hp.keys())
         hp_values = list(self.hp.values())
         param_combinations = list(itertools.product(*hp_values))
@@ -116,7 +117,9 @@ class HPO:
                 hpo_technique = self.random_search
 
             # Call the HPO method and obtain the best configuration in the inner_cv loop (OUTPUT OF EACH METHOD A DICT WITH THE BEST CONFIG)
-            best_config_inner_cv = hpo_technique(X=X_outer_train, y=y_outer_train)
+            best_config_inner_cv = hpo_technique(
+                X=X_outer_train, y=y_outer_train, n_splits=inner_k
+            )
 
             # End timing
             end_time = time.time()
