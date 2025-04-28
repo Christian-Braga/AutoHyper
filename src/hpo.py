@@ -48,7 +48,7 @@ class HPO:
 
         if self.task == "regression":
             r2 = r2_score(y_true, y_pred)
-            mse = mean_squared_error(y_true, y_pred)
+            mse = np.sqrt(mean_squared_error(y_true, y_pred))
             metrics["R2"] = r2
             metrics["mse"] = mse
 
@@ -73,12 +73,73 @@ class HPO:
 
     # Grid search
     def grid_search(self, X, y, n_splits):
-        # create in the function the inner cv with the hpo strategy -> output the best hp configuration
+        # Create the grid combination
         hp_keys = list(self.hp.keys())
         hp_values = list(self.hp.values())
         param_combinations = list(itertools.product(*hp_values))
-        hyperparameters = [dict(zip(hp_keys, combo)) for combo in param_combinations]
-        return hyperparameters
+        hyperparameters_configs = [
+            dict(zip(hp_keys, combo)) for combo in param_combinations
+        ]
+
+        # Inner cross validation loop
+        inner_cv = KFold(n_splits=n_splits, random_state=42, shuffle=True)
+        store_metrics = []
+
+        # loop for each configuration
+        for configuration in hyperparameters_configs:
+            model = clone(self.model)
+            model.set_params(**configuration)
+            inner_loop_results = []
+
+            # perform kfold cv for each configuration
+            for train_idx, test_idx in inner_cv.split(X):
+                X_inner_train, X_inner_val = X.iloc[train_idx], X.iloc[test_idx]
+                y_inner_train, y_inner_val = y.iloc[train_idx], y.iloc[test_idx]
+
+                model.fit(X_inner_train, y_inner_train)
+                y_pred_inner_cv = model.predict(X_inner_val)
+                results = self._evaluation_metrics(
+                    y_true=y_inner_val, y_pred=y_pred_inner_cv
+                )
+                config_dict = {}
+                config_dict["configuration"] = configuration
+                config_dict["results"] = results
+                inner_loop_results.append(config_dict)
+
+            # compute the average performance over all the folds for each config
+            if self.task == "regression":
+                r2_scores = []
+            elif self.task == "classification":
+                accuracy_scores = []
+            else:
+                raise ValueError(f"Unknown task type: {self.task}")
+
+            # Loop over folds
+            for fold in inner_loop_results:
+                configuration_results = {}
+
+                if self.task == "regression":
+                    r2_scores.append(fold["results"]["R2"])
+                    avg_r2 = sum(r2_scores) / n_splits
+                    configuration_results["configuration"] = fold["configuration"]
+                    configuration_results["results"] = avg_r2
+                    store_metrics.append(configuration_results)
+
+                elif self.task == "classification":
+                    accuracy_scores.append(fold["results"]["accuracy"])
+                    avg_accuracy = sum(accuracy_scores) / n_splits
+                    configuration_results["configuration"] = fold["configuration"]
+                    configuration_results["results"] = avg_accuracy
+                    store_metrics.append(configuration_results)
+
+        # Find the best configuration
+        best_configuration = store_metrics[0]["configuration"]
+        best_config_results = store_metrics[0]["results"]
+        for config_metrics in store_metrics:
+            if config_metrics["results"] > best_config_results:
+                best_configuration = config_metrics["configuration"]
+                best_config_results = config_metrics["results"]
+        return best_configuration
 
     # Random search
     def random_search(self):
