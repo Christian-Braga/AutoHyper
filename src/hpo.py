@@ -143,19 +143,19 @@ class HPO:
 
         # Set up outer CV loop
         outer_cv = KFold(n_splits=outer_k, random_state=42, shuffle=shuffle)
-        results_outer_cv = []
+        fold_results = []
 
-        # Store all configurations and their performances
-        all_configs = {}
+        # Dictionary to track configurations and their performance
+        config_tracker = {}
 
-        for train_idx, test_idx in outer_cv.split(X):
+        for fold_idx, (train_idx, test_idx) in enumerate(outer_cv.split(X)):
             X_outer_train, X_outer_test = X.iloc[train_idx], X.iloc[test_idx]
             y_outer_train, y_outer_test = y.iloc[train_idx], y.iloc[test_idx]
 
             # Start time
             start_time = time.time()
 
-            # Select hpo method
+            # Select HPO method
             if hpo_method not in self.available_methods:
                 raise Exception(
                     f"The selected HPO technique is not available, the available methods are: {self.available_methods}"
@@ -171,8 +171,7 @@ class HPO:
             )
 
             # End timing
-            end_time = time.time()
-            elapsed_time = end_time - start_time
+            elapsed_time = time.time() - start_time
 
             # Evaluate on the outer test set the best configuration found by the hpo method
             model = clone(self.model)
@@ -181,116 +180,111 @@ class HPO:
             y_pred = model.predict(X_outer_test)
 
             # Compute metrics
-            results = self._evaluation_metrics(y_true=y_outer_test, y_pred=y_pred)
+            metrics = self._evaluation_metrics(y_true=y_outer_test, y_pred=y_pred)
+
+            # Store results for this fold
             fold_result = {
-                "metrics": results,
-                "hpo_time_seconds": elapsed_time,
-                "best_config_inner_cv": best_config_inner_cv,
+                "fold": fold_idx,
+                "metrics": metrics,
+                "time": elapsed_time,
+                "config": best_config_inner_cv,
             }
-            results_outer_cv.append(fold_result)
+            fold_results.append(fold_result)
 
             # Track this configuration's performance
             config_str = json.dumps(best_config_inner_cv, sort_keys=True)
-            if config_str not in all_configs:
-                all_configs[config_str] = {
+            if config_str not in config_tracker:
+                config_tracker[config_str] = {
                     "config": best_config_inner_cv,
-                    "performances": [],
-                    "count": 0,
+                    "metrics": [],
+                    "folds": [],
                 }
 
-            # Add this fold's metrics
-            all_configs[config_str]["performances"].append(results)
-            all_configs[config_str]["count"] += 1
+            # Add this fold's metrics and fold index
+            config_tracker[config_str]["metrics"].append(metrics)
+            config_tracker[config_str]["folds"].append(fold_idx)
 
-        # Compute average metrics for each configuration
-        for config_str, data in all_configs.items():
-            performances = data["performances"]
-            n_appearances = len(performances)
+        # Process all tracked configurations
+        for config_str, data in config_tracker.items():
+            metrics_list = data["metrics"]
+            n_appearances = len(metrics_list)
 
-            # Calculate average metrics for each configuration
+            # Calculate average metrics based on task type
             if self.task == "regression":
-                data["avg_r2"] = (
-                    sum(perf["R2"] for perf in performances) / n_appearances
-                )
-                data["avg_mse"] = (
-                    sum(perf["mse"] for perf in performances) / n_appearances
-                )
-                # Lower MSE is better, so we sort by negative MSE (or directly by R2)
-                data["score"] = data["avg_r2"]  # or use -data["avg_mse"]
+                data["avg_metrics"] = {
+                    "r2": sum(m["R2"] for m in metrics_list) / n_appearances,
+                    "mse": sum(m["mse"] for m in metrics_list) / n_appearances,
+                }
+                # For regression, use R2 as primary score (higher is better)
+                data["primary_score"] = data["avg_metrics"]["r2"]
+
             elif self.task == "classification":
-                data["avg_accuracy"] = (
-                    sum(perf["accuracy"] for perf in performances) / n_appearances
-                )
-                data["avg_precision"] = (
-                    sum(perf["precision"] for perf in performances) / n_appearances
-                )
-                data["avg_recall"] = (
-                    sum(perf["recall"] for perf in performances) / n_appearances
-                )
-                data["avg_f1"] = (
-                    sum(perf["f1"] for perf in performances) / n_appearances
-                )
-                # F1 score is often a good balanced metric for classification
-                data["score"] = data["avg_f1"]
+                data["avg_metrics"] = {
+                    "accuracy": sum(m["accuracy"] for m in metrics_list)
+                    / n_appearances,
+                    "precision": sum(m["precision"] for m in metrics_list)
+                    / n_appearances,
+                    "recall": sum(m["recall"] for m in metrics_list) / n_appearances,
+                    "f1": sum(m["f1"] for m in metrics_list) / n_appearances,
+                }
+                # For classification, use F1 as primary score (higher is better)
+                data["primary_score"] = data["avg_metrics"]["f1"]
+
             else:
                 raise ValueError(f"Unknown task type: {self.task}")
 
-        # Sort configurations by performance score
-        sorted_configs = sorted(
-            all_configs.values(),
-            key=lambda x: x["score"],
+            # Add frequency information
+            data["frequency"] = n_appearances
+            data["frequency_pct"] = (n_appearances / outer_k) * 100
+
+        # Rank configurations by performance
+        configs_by_performance = sorted(
+            list(config_tracker.values()),
+            key=lambda x: x["primary_score"],
             reverse=True,  # Higher score is better
         )
 
-        # Best configuration based on average metrics
-        best_config = sorted_configs[0]["config"]
-
-        # Also track most frequent configuration for comparison
-        config_counter = Counter(
-            json.dumps(fold["best_config_inner_cv"], sort_keys=True)
-            for fold in results_outer_cv
+        # Rank configurations by frequency
+        configs_by_frequency = sorted(
+            list(config_tracker.values()),
+            key=lambda x: x["frequency"],
+            reverse=True,  # Higher frequency is better
         )
-        max_frequency = max(config_counter.values())
-        most_frequent_configs = [
-            json.loads(config)
-            for config, freq in config_counter.items()
-            if freq == max_frequency
-        ]
 
-        # Calculate aggregate performance metrics across all folds
+        # Calculate overall metrics across all folds
         if self.task == "regression":
-            r2_scores = [fold["metrics"]["R2"] for fold in results_outer_cv]
-            mse_scores = [fold["metrics"]["mse"] for fold in results_outer_cv]
-            avg_r2 = sum(r2_scores) / outer_k
-            avg_mse = sum(mse_scores) / outer_k
-            overall_metrics = {"best_model_R2": avg_r2, "best_model_mse": avg_mse}
-        elif self.task == "classification":
-            accuracy_scores = [fold["metrics"]["accuracy"] for fold in results_outer_cv]
-            precision_scores = [
-                fold["metrics"]["precision"] for fold in results_outer_cv
-            ]
-            recall_scores = [fold["metrics"]["recall"] for fold in results_outer_cv]
-            f1_scores = [fold["metrics"]["f1"] for fold in results_outer_cv]
             overall_metrics = {
-                "best_model_accuracy": sum(accuracy_scores) / outer_k,
-                "best_model_precision": sum(precision_scores) / outer_k,
-                "best_model_recall": sum(recall_scores) / outer_k,
-                "best_model_f1": sum(f1_scores) / outer_k,
+                "r2_mean": np.mean([fold["metrics"]["R2"] for fold in fold_results]),
+                "r2_std": np.std([fold["metrics"]["R2"] for fold in fold_results]),
+                "mse_mean": np.mean([fold["metrics"]["mse"] for fold in fold_results]),
+                "mse_std": np.std([fold["metrics"]["mse"] for fold in fold_results]),
+            }
+        elif self.task == "classification":
+            overall_metrics = {
+                "accuracy_mean": np.mean(
+                    [fold["metrics"]["accuracy"] for fold in fold_results]
+                ),
+                "accuracy_std": np.std(
+                    [fold["metrics"]["accuracy"] for fold in fold_results]
+                ),
+                "f1_mean": np.mean([fold["metrics"]["f1"] for fold in fold_results]),
+                "f1_std": np.std([fold["metrics"]["f1"] for fold in fold_results]),
             }
 
-        # Prepare final results
+        # Build the final result structure
         final_result = {
-            "best_config_by_performance": best_config,
-            "best_config_performance": sorted_configs[0],
-            "most_frequent_configs": most_frequent_configs,
-            "most_frequent_config_count": max_frequency,
-            "all_configurations": sorted_configs,
-            "overall_metrics": overall_metrics,  # Average metrics across all folds
-            "outer_cv_results": results_outer_cv,  # Individual fold results
+            "best_config": configs_by_performance[0]["config"],
+            "best_config_metrics": configs_by_performance[0]["avg_metrics"],
+            "best_config_frequency": configs_by_performance[0]["frequency"],
+            "overall_metrics": overall_metrics,
+            "hpo_method": hpo_method,
+            "configs_ranked_by_performance": configs_by_performance[
+                :5
+            ],  # Top 5 by performance
+            "configs_ranked_by_frequency": configs_by_frequency[
+                :5
+            ],  # Top 5 by frequency
         }
-
-        # Add overall metrics at the top level for backwards compatibility
-        final_result.update(overall_metrics)
 
         return final_result
 
