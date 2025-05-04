@@ -1,4 +1,10 @@
 # > Libraries
+import os
+import sys
+
+# Ensure parent dir is in path for 'utils' module
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import itertools
 import json
 import time
@@ -129,10 +135,6 @@ class HPO:
             dict(zip(hp_keys, combo)) for combo in param_combinations
         ]
 
-        self.logger.info(
-            f"Generated {len(hyperparameters_configs)} hyperparameter combinations."
-        )
-
         store_metrics = []
 
         for i, configuration in enumerate(hyperparameters_configs, 1):
@@ -222,12 +224,14 @@ class HPO:
         Returns a simplified, non-redundant output optimized for data visualization.
         """
 
-        self.logger.info("=" * 80)
+        self.logger.info(f"{'#' * 48} HPO {'#' * 48}")
         self.logger.info("Starting Nested Cross-Validation for HPO")
+        self.logger.info("=" * 96)
         self.logger.info(
-            f" Number of outer folds: {outer_k}, Number of inner folds: {inner_k}, Method: {hpo_method}"
+            f"Number of outer folds: {outer_k}, Number of inner folds: {inner_k}, Method: {hpo_method}"
         )
         self.logger.info(f"Target task: {self.task}")
+        self.logger.info("=" * 96)
 
         # Data
         X = self.features
@@ -241,7 +245,7 @@ class HPO:
         all_configs = {}
 
         for fold_idx, (train_idx, test_idx) in enumerate(outer_cv.split(X)):
-            self.logger.info(f"\nOUTER FOLD {fold_idx + 1}/{outer_k} STARTED")
+            self.logger.info(f"OUTER FOLD {fold_idx + 1}/{outer_k} STARTED")
             X_outer_train, X_outer_test = X.iloc[train_idx], X.iloc[test_idx]
             y_outer_train, y_outer_test = y.iloc[train_idx], y.iloc[test_idx]
 
@@ -284,11 +288,11 @@ class HPO:
             # Log metrics based on task type
             if self.task == "regression":
                 self.logger.info(
-                    f"Outer fold {fold_idx + 1} results - R2: {results['R2']:.4f}, MSE: {results['mse']:.4f}"
+                    f"Outer fold {fold_idx + 1} results - R2: {results['R2']:.4f}, MSE: {results['mse']:.4f} for congiguration: {best_config_inner_cv}"
                 )
             elif self.task == "classification":
                 self.logger.info(
-                    f"Outer fold {fold_idx + 1} results - Accuracy: {results['accuracy']:.4f}, F1: {results['f1']:.4f}"
+                    f"Outer fold {fold_idx + 1} results - Accuracy: {results['accuracy']:.4f}, F1: {results['f1']:.4f} for congiguration: {best_config_inner_cv}"
                 )
 
             fold_result = {
@@ -311,9 +315,10 @@ class HPO:
             # Add this fold's metrics
             all_configs[config_str]["performances"].append(results)
             all_configs[config_str]["count"] += 1
-            self.logger.info(f"OUTER FOLD {fold_idx + 1}/{outer_k} COMPLETED\n")
+            self.logger.info(f"OUTER FOLD {fold_idx + 1}/{outer_k} COMPLETED")
+            self.logger.info("=" * 96)
 
-        self.logger.info("All outer folds completed, processing configurations")
+        self.logger.info("Outer CV completed, Results:")
 
         # Process configuration performances
         for config_str, data in all_configs.items():
@@ -447,7 +452,7 @@ class HPO:
         total_time = sum(fold["time_seconds"] for fold in results_outer_cv)
         self.logger.info(f"Total execution time: {total_time:.2f} seconds")
         self.logger.info("=" * 80)
-        self.logger.info("Hyperparameter optimization complete")
+        self.logger.info("Hyperparameter optimization complete :)")
         self.logger.info("=" * 80)
 
         # Prepare simplified results with visualization-friendly structure
@@ -541,4 +546,4 @@ if __name__ == "__main__":
     )
 
     # test run
-    print(test_hpo.hp_tuning(hpo_method="random_search", outer_k=5, inner_k=3))
+    print(test_hpo.hp_tuning(hpo_method="grid_search", outer_k=5, inner_k=3))
