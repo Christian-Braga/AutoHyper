@@ -5,6 +5,7 @@ import time
 import random
 from collections import Counter
 from typing import Optional
+from utils.logger import get_logger
 
 
 import matplotlib.pyplot as plt
@@ -35,6 +36,10 @@ class HPO:
         self.target = data_target
         self.hp = hp_values
         self.task = task
+
+        # Logger
+        self.logger = get_logger("HPO")
+        self.logger.info("Initialized HPO class")
 
         self.available_tasks = ["regression", "classification"]
         if self.task not in self.available_tasks:
@@ -74,6 +79,9 @@ class HPO:
 
     def _inner_cross_validation(self, configuration, X, y, n_splits):
         """Evaluate a single hyperparameter configuration using K-Fold cross-validation. Returns the average performance metric."""
+
+        self.logger.debug("Starting Inner CV loop")
+
         model = clone(self.model)
         model.set_params(**configuration)
 
@@ -81,28 +89,38 @@ class HPO:
 
         scores = []
 
-        for train_idx, test_idx in inner_cv.split(X):
-            X_train, X_val = X.iloc[train_idx], X.iloc[test_idx]
-            y_train, y_val = y.iloc[train_idx], y.iloc[test_idx]
+        try:
+            for train_idx, test_idx in inner_cv.split(X):
+                X_train, X_val = X.iloc[train_idx], X.iloc[test_idx]
+                y_train, y_val = y.iloc[train_idx], y.iloc[test_idx]
 
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_val)
-            metrics = self._evaluation_metrics(y_true=y_val, y_pred=y_pred)
+                model.fit(X_train, y_train)
+                y_pred = model.predict(X_val)
+                metrics = self._evaluation_metrics(y_true=y_val, y_pred=y_pred)
 
-            if self.task == "regression":
-                scores.append(metrics["R2"])
-            elif self.task == "classification":
-                scores.append(metrics["accuracy"])
-            else:
-                raise ValueError(f"Unknown task type: {self.task}")
+                if self.task == "regression":
+                    scores.append(metrics["R2"])
+                elif self.task == "classification":
+                    scores.append(metrics["accuracy"])
+                else:
+                    raise ValueError(f"Unknown task type: {self.task}")
+
+        except Exception as exc:
+            self.logger.error(f"Error in inner CV loop : {exc}", exc_info=True)
 
         average_score = sum(scores) / n_splits
+        self.logger.debug(
+            f"Average score for the configuration {configuration} : {average_score:.4f} in the Inner CV loop"
+        )
+
         return average_score
 
     # > Main functions
 
     # Grid search
     def grid_search(self, X, y, n_splits, n_trials: Optional[int] = None):
+        self.logger.info("Starting Grid Search...")
+
         # Create the grid combination
         hp_keys = list(self.hp.keys())
         hp_values = list(self.hp.values())
@@ -111,9 +129,17 @@ class HPO:
             dict(zip(hp_keys, combo)) for combo in param_combinations
         ]
 
+        self.logger.info(
+            f"Generated {len(hyperparameters_configs)} hyperparameter combinations."
+        )
+
         store_metrics = []
 
-        for configuration in hyperparameters_configs:
+        for i, configuration in enumerate(hyperparameters_configs, 1):
+            self.logger.debug(
+                f"Evaluating config {i}/{len(hyperparameters_configs)}: {configuration}"
+            )
+
             avg_score = self._inner_cross_validation(configuration, X, y, n_splits)
             store_metrics.append({"configuration": configuration, "score": avg_score})
 
@@ -122,14 +148,27 @@ class HPO:
             "configuration"
         ]
 
+        self.logger.info(
+            f"Best config found from the Inner CV loop: {best_configuration}"
+        )
+
         return best_configuration
 
     # Random search
     def random_search(self, X, y, n_splits, n_trials):
+        self.logger.info("Starting Random Search...")
+
+        # Handle error in n_trials setup
+        if n_trials <= 0:
+            self.logger.warning(
+                "Number of trials is set to 0 or less. No configurations will be evaluated."
+            )
+            return None
+
         store_metrics = []
 
         # Start the random sampling loop
-        for trial in range(n_trials):
+        for trial in range(1, n_trials + 1):
             configuration = {}
 
             # Create the configuration
@@ -144,13 +183,26 @@ class HPO:
                     # Fallback for categorical or mixed types
                     configuration[param] = random.choice(values)
 
+            self.logger.debug(
+                f"Evaluating random config {trial}/{n_trials}: {configuration}"
+            )
+
             avg_score = self._inner_cross_validation(configuration, X, y, n_splits)
             store_metrics.append({"configuration": configuration, "score": avg_score})
+
+        if not store_metrics:
+            self.logger.error("No valid configurations were successfully evaluated.")
+            return None
 
         # Find the best configuration
         best_configuration = max(store_metrics, key=lambda x: x["score"])[
             "configuration"
         ]
+
+        self.logger.info(
+            f"Best config found from the Inner CV loop: {best_configuration}"
+        )
+
         return best_configuration
 
     # Plot results of the tuning loop
@@ -169,6 +221,14 @@ class HPO:
         Perform hyperparameter optimization using nested cross-validation.
         Returns a simplified, non-redundant output optimized for data visualization.
         """
+
+        self.logger.info("=" * 80)
+        self.logger.info("Starting Nested Cross-Validation for HPO")
+        self.logger.info(
+            f" Number of outer folds: {outer_k}, Number of inner folds: {inner_k}, Method: {hpo_method}"
+        )
+        self.logger.info(f"Target task: {self.task}")
+
         # Data
         X = self.features
         y = self.target
@@ -181,6 +241,7 @@ class HPO:
         all_configs = {}
 
         for fold_idx, (train_idx, test_idx) in enumerate(outer_cv.split(X)):
+            self.logger.info(f"\nOUTER FOLD {fold_idx + 1}/{outer_k} STARTED")
             X_outer_train, X_outer_test = X.iloc[train_idx], X.iloc[test_idx]
             y_outer_train, y_outer_test = y.iloc[train_idx], y.iloc[test_idx]
 
@@ -189,17 +250,17 @@ class HPO:
 
             # Select hpo method
             if hpo_method not in self.available_methods:
-                raise Exception(
-                    f"The selected HPO technique is not available, the available methods are: {self.available_methods}"
-                )
+                error_msg = f"The selected HPO technique is not available, the available methods are: {self.available_methods}"
+                self.logger.error(error_msg)
+                raise Exception(error_msg)
             elif hpo_method == "grid_search":
                 hpo_technique = self.grid_search
             elif hpo_method == "random_search":
                 hpo_technique = self.random_search
                 if n_trials is None:
-                    raise ValueError(
-                        "To use the random search method you need to specify the number of hyperparameter configurations you want to try"
-                    )
+                    error_msg = "To use the random search method you need to specify the number of hyperparameter configurations you want to try"
+                    self.logger.error(error_msg)
+                    raise ValueError(error_msg)
 
             # Call the HPO method and obtain the best configuration in the inner_cv loop
             best_config_inner_cv = hpo_technique(
@@ -208,8 +269,10 @@ class HPO:
 
             # End timing
             elapsed_time = time.time() - start_time
+            self.logger.debug(f"Inner CV execution time: {elapsed_time:.2f} seconds")
 
             # Evaluate on the outer test set the best configuration found by the hpo method
+
             model = clone(self.model)
             model.set_params(**best_config_inner_cv)
             model.fit(X_outer_train, y_outer_train)
@@ -217,6 +280,17 @@ class HPO:
 
             # Compute metrics
             results = self._evaluation_metrics(y_true=y_outer_test, y_pred=y_pred)
+
+            # Log metrics based on task type
+            if self.task == "regression":
+                self.logger.info(
+                    f"Outer fold {fold_idx + 1} results - R2: {results['R2']:.4f}, MSE: {results['mse']:.4f}"
+                )
+            elif self.task == "classification":
+                self.logger.info(
+                    f"Outer fold {fold_idx + 1} results - Accuracy: {results['accuracy']:.4f}, F1: {results['f1']:.4f}"
+                )
+
             fold_result = {
                 "fold": fold_idx,
                 "metrics": results,
@@ -237,6 +311,9 @@ class HPO:
             # Add this fold's metrics
             all_configs[config_str]["performances"].append(results)
             all_configs[config_str]["count"] += 1
+            self.logger.info(f"OUTER FOLD {fold_idx + 1}/{outer_k} COMPLETED\n")
+
+        self.logger.info("All outer folds completed, processing configurations")
 
         # Process configuration performances
         for config_str, data in all_configs.items():
@@ -301,6 +378,9 @@ class HPO:
 
         # Best configuration based on weighted metrics
         best_config = sorted_configs[0]["config"]
+        self.logger.info(
+            f"Best weighted configuration: {best_config} with weight score {sorted_configs[0]['weighted_score']:.4f}"
+        )
 
         # Get most frequent configuration
         config_counter = Counter(
@@ -309,6 +389,9 @@ class HPO:
         most_frequent_config_str = config_counter.most_common(1)[0][0]
         most_frequent_config = json.loads(most_frequent_config_str)
         most_frequent_count = config_counter.most_common(1)[0][1]
+        self.logger.info(
+            f"Most frequent configuration: {most_frequent_config} (appeared {most_frequent_count} times)"
+        )
 
         # Generate all ranking information
 
@@ -326,6 +409,10 @@ class HPO:
         # Rank by weighted score
         for idx, config in enumerate(sorted_configs):
             config["weighted_rank"] = idx + 1
+
+        self.logger.info(
+            f"Best by performance: {performance_sorted_configs[0]['config']} with performance score {performance_sorted_configs[0]['score']:.4f}"
+        )
 
         # Calculate metrics for visualization
         metrics_by_fold = []
@@ -356,6 +443,12 @@ class HPO:
                 values = [fold["metrics"][key] for fold in results_outer_cv]
                 overall_metrics[f"{key}_mean"] = sum(values) / outer_k
                 overall_metrics[f"{key}_std"] = np.std(values)
+
+        total_time = sum(fold["time_seconds"] for fold in results_outer_cv)
+        self.logger.info(f"Total execution time: {total_time:.2f} seconds")
+        self.logger.info("=" * 80)
+        self.logger.info("Hyperparameter optimization complete")
+        self.logger.info("=" * 80)
 
         # Prepare simplified results with visualization-friendly structure
         return {

@@ -1,0 +1,153 @@
+[2025-05-04 11:37:46] [INFO] Initialized HPO class
+[2025-05-04 11:38:12] [INFO] ================================================================================
+[2025-05-04 11:38:12] [INFO] Starting Nested Cross-Validation for HPO
+[2025-05-04 11:38:12] [INFO]  Number of outer folds: 5, Number of inner folds: 3, Method: grid_search
+[2025-05-04 11:38:12] [INFO] Target task: regression
+[2025-05-04 11:38:12] [INFO] 
+OUTER FOLD 1/5 STARTED
+[2025-05-04 11:38:12] [INFO] Starting Grid Search...
+[2025-05-04 11:38:12] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:38:14] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:38:14] [INFO] Outer fold 1 results - R2: 0.8160, MSE: 0.2412
+[2025-05-04 11:38:14] [INFO] OUTER FOLD 1/5 COMPLETED
+
+[2025-05-04 11:38:14] [INFO] 
+OUTER FOLD 2/5 STARTED
+[2025-05-04 11:38:14] [INFO] Starting Grid Search...
+[2025-05-04 11:38:14] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:38:16] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:38:16] [INFO] Outer fold 2 results - R2: 0.8280, MSE: 0.2349
+[2025-05-04 11:38:16] [INFO] OUTER FOLD 2/5 COMPLETED
+
+[2025-05-04 11:38:16] [INFO] 
+OUTER FOLD 3/5 STARTED
+[2025-05-04 11:38:16] [INFO] Starting Grid Search...
+[2025-05-04 11:38:16] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:38:17] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:38:17] [INFO] Outer fold 3 results - R2: 0.8141, MSE: 0.2419
+[2025-05-04 11:38:17] [INFO] OUTER FOLD 3/5 COMPLETED
+
+[2025-05-04 11:38:17] [INFO] 
+OUTER FOLD 4/5 STARTED
+[2025-05-04 11:38:17] [INFO] Starting Grid Search...
+[2025-05-04 11:38:17] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:38:19] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:38:19] [INFO] Outer fold 4 results - R2: 0.8368, MSE: 0.2176
+[2025-05-04 11:38:19] [INFO] OUTER FOLD 4/5 COMPLETED
+
+[2025-05-04 11:38:19] [INFO] 
+OUTER FOLD 5/5 STARTED
+[2025-05-04 11:38:19] [INFO] Starting Grid Search...
+[2025-05-04 11:38:19] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:38:21] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:38:21] [INFO] Outer fold 5 results - R2: 0.8127, MSE: 0.2521
+[2025-05-04 11:38:21] [INFO] OUTER FOLD 5/5 COMPLETED
+
+[2025-05-04 11:38:21] [INFO] All outer folds completed, processing configurations
+[2025-05-04 11:38:21] [INFO] Best weighted configuration: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50} with score 0.8750
+[2025-05-04 11:38:21] [INFO] Most frequent configuration: {'learning_rate': 0.2, 'max_depth': 5, 'n_estimators': 50} (appeared 5 times)
+[2025-05-04 11:38:21] [INFO] Best by performance: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50} with score 0.8215
+[2025-05-04 11:38:21] [INFO] Total execution time: 7.91 seconds
+[2025-05-04 11:38:21] [INFO] ================================================================================
+[2025-05-04 11:38:21] [INFO] Hyperparameter optimization complete
+[2025-05-04 11:38:21] [INFO] ================================================================================
+[2025-05-04 11:44:43] [INFO] ================================================================================
+[2025-05-04 11:44:43] [INFO] Starting Nested Cross-Validation for HPO
+[2025-05-04 11:44:43] [INFO]  Number of outer folds: 5, Number of inner folds: 3, Method: random_search
+[2025-05-04 11:44:43] [INFO] Target task: regression
+[2025-05-04 11:44:43] [INFO] 
+OUTER FOLD 1/5 STARTED
+[2025-05-04 11:44:43] [INFO] Starting Random Search...
+[2025-05-04 11:44:44] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.18271355712915854, 'n_estimators': 43}
+[2025-05-04 11:44:44] [INFO] Outer fold 1 results - R2: 0.8065, MSE: 0.2535
+[2025-05-04 11:44:44] [INFO] OUTER FOLD 1/5 COMPLETED
+
+[2025-05-04 11:44:44] [INFO] 
+OUTER FOLD 2/5 STARTED
+[2025-05-04 11:44:44] [INFO] Starting Random Search...
+[2025-05-04 11:44:44] [INFO] Best config found from the Inner CV loop: {'max_depth': 4, 'learning_rate': 0.17746334212993675, 'n_estimators': 50}
+[2025-05-04 11:44:44] [INFO] Outer fold 2 results - R2: 0.8090, MSE: 0.2609
+[2025-05-04 11:44:44] [INFO] OUTER FOLD 2/5 COMPLETED
+
+[2025-05-04 11:44:44] [INFO] 
+OUTER FOLD 3/5 STARTED
+[2025-05-04 11:44:44] [INFO] Starting Random Search...
+[2025-05-04 11:44:45] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.09583652345164648, 'n_estimators': 19}
+[2025-05-04 11:44:45] [INFO] Outer fold 3 results - R2: 0.7044, MSE: 0.3847
+[2025-05-04 11:44:45] [INFO] OUTER FOLD 3/5 COMPLETED
+
+[2025-05-04 11:44:45] [INFO] 
+OUTER FOLD 4/5 STARTED
+[2025-05-04 11:44:45] [INFO] Starting Random Search...
+[2025-05-04 11:44:46] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.16520200872658797, 'n_estimators': 34}
+[2025-05-04 11:44:46] [INFO] Outer fold 4 results - R2: 0.8196, MSE: 0.2405
+[2025-05-04 11:44:46] [INFO] OUTER FOLD 4/5 COMPLETED
+
+[2025-05-04 11:44:46] [INFO] 
+OUTER FOLD 5/5 STARTED
+[2025-05-04 11:44:46] [INFO] Starting Random Search...
+[2025-05-04 11:44:46] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.14725646239605578, 'n_estimators': 39}
+[2025-05-04 11:44:46] [INFO] Outer fold 5 results - R2: 0.7968, MSE: 0.2735
+[2025-05-04 11:44:46] [INFO] OUTER FOLD 5/5 COMPLETED
+
+[2025-05-04 11:44:46] [INFO] All outer folds completed, processing configurations
+[2025-05-04 11:44:46] [INFO] Best weighted configuration: {'max_depth': 5, 'learning_rate': 0.16520200872658797, 'n_estimators': 34} with score 0.8737
+[2025-05-04 11:44:46] [INFO] Most frequent configuration: {'learning_rate': 0.18271355712915854, 'max_depth': 5, 'n_estimators': 43} (appeared 1 times)
+[2025-05-04 11:44:46] [INFO] Best by performance: {'max_depth': 5, 'learning_rate': 0.16520200872658797, 'n_estimators': 34} with score 0.8196
+[2025-05-04 11:44:46] [INFO] Total execution time: 3.06 seconds
+[2025-05-04 11:44:46] [INFO] ================================================================================
+[2025-05-04 11:44:46] [INFO] Hyperparameter optimization complete
+[2025-05-04 11:44:46] [INFO] ================================================================================
+[2025-05-04 11:45:04] [INFO] Initialized HPO class
+[2025-05-04 11:45:05] [INFO] ================================================================================
+[2025-05-04 11:45:05] [INFO] Starting Nested Cross-Validation for HPO
+[2025-05-04 11:45:05] [INFO]  Number of outer folds: 5, Number of inner folds: 3, Method: grid_search
+[2025-05-04 11:45:05] [INFO] Target task: regression
+[2025-05-04 11:45:05] [INFO] 
+OUTER FOLD 1/5 STARTED
+[2025-05-04 11:45:05] [INFO] Starting Grid Search...
+[2025-05-04 11:45:05] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:45:07] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:45:07] [INFO] Outer fold 1 results - R2: 0.8160, MSE: 0.2412
+[2025-05-04 11:45:07] [INFO] OUTER FOLD 1/5 COMPLETED
+
+[2025-05-04 11:45:07] [INFO] 
+OUTER FOLD 2/5 STARTED
+[2025-05-04 11:45:07] [INFO] Starting Grid Search...
+[2025-05-04 11:45:07] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:45:08] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:45:09] [INFO] Outer fold 2 results - R2: 0.8280, MSE: 0.2349
+[2025-05-04 11:45:09] [INFO] OUTER FOLD 2/5 COMPLETED
+
+[2025-05-04 11:45:09] [INFO] 
+OUTER FOLD 3/5 STARTED
+[2025-05-04 11:45:09] [INFO] Starting Grid Search...
+[2025-05-04 11:45:09] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:45:10] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:45:10] [INFO] Outer fold 3 results - R2: 0.8141, MSE: 0.2419
+[2025-05-04 11:45:10] [INFO] OUTER FOLD 3/5 COMPLETED
+
+[2025-05-04 11:45:10] [INFO] 
+OUTER FOLD 4/5 STARTED
+[2025-05-04 11:45:10] [INFO] Starting Grid Search...
+[2025-05-04 11:45:10] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:45:12] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:45:12] [INFO] Outer fold 4 results - R2: 0.8368, MSE: 0.2176
+[2025-05-04 11:45:12] [INFO] OUTER FOLD 4/5 COMPLETED
+
+[2025-05-04 11:45:12] [INFO] 
+OUTER FOLD 5/5 STARTED
+[2025-05-04 11:45:12] [INFO] Starting Grid Search...
+[2025-05-04 11:45:12] [INFO] Generated 27 hyperparameter combinations.
+[2025-05-04 11:45:14] [INFO] Best config found from the Inner CV loop: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50}
+[2025-05-04 11:45:14] [INFO] Outer fold 5 results - R2: 0.8127, MSE: 0.2521
+[2025-05-04 11:45:14] [INFO] OUTER FOLD 5/5 COMPLETED
+
+[2025-05-04 11:45:14] [INFO] All outer folds completed, processing configurations
+[2025-05-04 11:45:14] [INFO] Best weighted configuration: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50} with weight score 0.8750
+[2025-05-04 11:45:14] [INFO] Most frequent configuration: {'learning_rate': 0.2, 'max_depth': 5, 'n_estimators': 50} (appeared 5 times)
+[2025-05-04 11:45:14] [INFO] Best by performance: {'max_depth': 5, 'learning_rate': 0.2, 'n_estimators': 50} with performance score 0.8215
+[2025-05-04 11:45:14] [INFO] Total execution time: 8.62 seconds
+[2025-05-04 11:45:14] [INFO] ================================================================================
+[2025-05-04 11:45:14] [INFO] Hyperparameter optimization complete
+[2025-05-04 11:45:14] [INFO] ================================================================================
