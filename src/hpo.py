@@ -7,17 +7,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import itertools
 import json
-import time
 import random
+import time
 from collections import Counter
 from typing import Optional
-from utils.logger import get_logger
 
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import xgboost as xgb
 from sklearn.base import clone
 from sklearn.datasets import fetch_california_housing
@@ -29,7 +25,9 @@ from sklearn.metrics import (
     r2_score,
     recall_score,
 )
-from sklearn.model_selection import KFold, cross_val_score, train_test_split
+from sklearn.model_selection import KFold
+
+from utils.logger import get_logger
 
 
 # > Hyperparameter Optimizer
@@ -42,17 +40,16 @@ class HPO:
         self.target = data_target
         self.hp = hp_values
         self.task = task
-
-        # Logger
-        self.logger = get_logger("HPO")
-        self.logger.info("Initialized HPO class")
-
         self.available_tasks = ["regression", "classification"]
         if self.task not in self.available_tasks:
             raise Exception(
                 f"the selected task is not available, the only available tasks are: {self.available_tasks[0]}, {self.available_tasks[1]}"
             )
         self.available_methods = ["grid_search", "random_search"]
+
+        # Logger
+        self.logger = get_logger("HPO")
+        self.logger.info("Initialized HPO class")
 
     # > Support Functions
 
