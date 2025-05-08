@@ -1,2 +1,7 @@
-# functions to perform data visualization from the structured output so
-# code common for all the methods
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+#

@@ -206,8 +206,16 @@ class HPO:
 
     # Plot results of the tuning loop
     def plot_results(self):
+        # The idea is that when this function is called all the possible plots for the selected
+        # method will be called and visualized in a complete and interactive dashboard
+        # with description and everything, so if i use random search all the common and specific
+        # visualization for random search and so on..
+        # i write the general visualization function in the file general.py
+        # while for the other methods, i will design some visualization inside the specific
+        # class for clarity
         pass
 
+    # Main Hyperparameters tuning function
     def hp_tuning(
         self,
         hpo_method: str,
