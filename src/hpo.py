@@ -31,6 +31,7 @@ from utils.logger import get_logger
 
 # HPO methods
 from src.hpo_methods import GridSearch
+from src.hpo_methods import RandomSearch
 
 
 # > Hyperparameter Optimizer
@@ -59,6 +60,7 @@ class HPO:
         # HPO methods
         self.available_methods = ["grid_search", "random_search"]
         self.grid_search_method = GridSearch(hyperparameters=self.hp)
+        self.random_search_method = RandomSearch(hyperparameters=self.hp)
 
         # Logger
         self.logger = get_logger("HPO")
@@ -162,6 +164,25 @@ class HPO:
 
     # Random search
     def random_search(self, X, y, n_splits, n_trials):
+        """
+        Perform random search hyperparameter optimization.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            Features for training and validation.
+        y : pandas.Series
+            Target variable.
+        n_splits : int
+            Number of cross-validation splits for the inner CV loop.
+        n_trials : int
+            Number of random hyperparameter configurations to try.
+
+        Returns:
+        --------
+        dict
+            Best hyperparameter configuration found by random search.
+        """
         self.logger.info("Starting Random Search...")
 
         # Handle error in n_trials setup
@@ -171,26 +192,17 @@ class HPO:
             )
             return None
 
+        # Generate Random configurations
+        configurations = self.random_search_method.random_configurations(
+            n_trials=n_trials
+        )
+
         store_metrics = []
 
-        # Start the random sampling loop
-        for trial in range(1, n_trials + 1):
-            configuration = {}
-
-            # Create the configuration
-            for param, values in self.hp.items():
-                if all(isinstance(v, int) for v in values):
-                    low, high = min(values), max(values)
-                    configuration[param] = random.randint(low, high)
-                elif all(isinstance(v, float) for v in values):
-                    low, high = min(values), max(values)
-                    configuration[param] = random.uniform(low, high)
-                else:
-                    # Fallback for categorical or mixed types
-                    configuration[param] = random.choice(values)
-
+        # Evaluate each configuration using the inner cross-validation
+        for i, configuration in enumerate(configurations, 1):
             self.logger.debug(
-                f"Evaluating random config {trial}/{n_trials}: {configuration}"
+                f"Evaluating random config {i}/{n_trials}: {configuration}"
             )
 
             avg_score = self._inner_cross_validation(configuration, X, y, n_splits)
