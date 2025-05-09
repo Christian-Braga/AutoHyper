@@ -29,6 +29,18 @@ from sklearn.model_selection import KFold
 
 from utils.logger import get_logger
 
+from src.visualizations import (
+    plot_performance_vs_frequency,
+    plot_parameter_importance,
+    plot_parameter_space,
+    plot_cv_stability,
+    plot_rank_comparison,
+    plot_fold_performance,
+    plot_weighted_score_components,
+    plot_parameter_interaction,
+)
+
+
 # HPO methods
 from src.hpo_methods import GridSearch
 from src.hpo_methods import RandomSearch
@@ -65,6 +77,9 @@ class HPO:
         # Logger
         self.logger = get_logger("HPO")
         self.logger.info("Initialized HPO class")
+
+        # Ouptut
+        self.structured_output = None
 
     # > Support Functions
 
@@ -225,14 +240,16 @@ class HPO:
 
     # Plot results of the tuning loop
     def plot_results(self):
-        # The idea is that when this function is called all the possible plots for the selected
-        # method will be called and visualized in a complete and interactive dashboard
-        # with description and everything, so if i use random search all the common and specific
-        # visualization for random search and so on..
-        # i write the general visualization function in the file general.py
-        # while for the other methods, i will design some visualization inside the specific
-        # class for clarity
-        pass
+        if self.structured_output is not None:
+            plot_1 = plot_performance_vs_frequency(self.structured_output)
+            plot_2 = plot_parameter_importance(self.structured_output)
+            plot_3 = plot_parameter_space(self.structured_output)
+            plot_4 = plot_cv_stability(self.structured_output)
+            plot_5 = plot_rank_comparison(self.structured_output)
+            plot_6 = plot_fold_performance(self.structured_output)
+            plot_7 = plot_weighted_score_components(self.structured_output)
+            plot_8 = plot_parameter_interaction(self.structured_output)
+        return plot_1, plot_2, plot_3, plot_4, plot_5, plot_6, plot_7, plot_8
 
     # Main Hyperparameters tuning function
     def hp_tuning(
@@ -480,7 +497,7 @@ class HPO:
         self.logger.info("=" * 80)
 
         # Prepare simplified results with visualization-friendly structure
-        return {
+        self.structured_output = {
             "best_config": {
                 "params": best_config,
                 "weighted_score": sorted_configs[0]["weighted_score"],
@@ -528,6 +545,8 @@ class HPO:
             "execution_time": sum(fold["time_seconds"] for fold in results_outer_cv),
             "weighting_factors": {"performance_weight": 0.7, "frequency_weight": 0.3},
         }
+
+        return self.structured_output
 
 
 # Test the class
