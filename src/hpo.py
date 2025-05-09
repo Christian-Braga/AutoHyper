@@ -29,23 +29,36 @@ from sklearn.model_selection import KFold
 
 from utils.logger import get_logger
 
+# HPO methods
+from src.hpo_methods import GridSearch
+
 
 # > Hyperparameter Optimizer
 class HPO:
     """A class to perform HPO on a given model with different HPO techniques."""
 
     def __init__(self, model, data_features, data_target, hp_values: dict, task: str):
+        # Model
         self.model = model
+
+        # Data
         self.features = data_features
         self.target = data_target
+
+        # Hyperparameters
         self.hp = hp_values
+
+        # Tasks
         self.task = task
         self.available_tasks = ["regression", "classification"]
         if self.task not in self.available_tasks:
             raise Exception(
                 f"the selected task is not available, the only available tasks are: {self.available_tasks[0]}, {self.available_tasks[1]}"
             )
+
+        # HPO methods
         self.available_methods = ["grid_search", "random_search"]
+        self.grid_search_method = GridSearch(hyperparameters=self.hp)
 
         # Logger
         self.logger = get_logger("HPO")
@@ -124,13 +137,7 @@ class HPO:
     def grid_search(self, X, y, n_splits, n_trials: Optional[int] = None):
         self.logger.info("Starting Grid Search...")
 
-        # Create the grid combination
-        hp_keys = list(self.hp.keys())
-        hp_values = list(self.hp.values())
-        param_combinations = list(itertools.product(*hp_values))
-        hyperparameters_configs = [
-            dict(zip(hp_keys, combo)) for combo in param_combinations
-        ]
+        hyperparameters_configs = self.grid_search_method.grid_combinations()
 
         store_metrics = []
 
