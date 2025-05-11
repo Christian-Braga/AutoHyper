@@ -30,14 +30,10 @@ from sklearn.model_selection import KFold
 from utils.logger import get_logger
 
 from src.visualizations import (
-    plot_performance_vs_frequency,
-    plot_parameter_importance,
-    plot_parameter_space,
-    plot_cv_stability,
-    plot_rank_comparison,
-    plot_fold_performance,
-    plot_weighted_score_components,
-    plot_parameter_interaction,
+    plot_performance_distribution,
+    plot_param_importance,
+    plot_rank_correlation,
+    plot_cross_validation_analysis,
 )
 
 
@@ -241,15 +237,19 @@ class HPO:
     # Plot results of the tuning loop
     def plot_results(self):
         if self.structured_output is not None:
-            plot_1 = plot_performance_vs_frequency(self.structured_output)
-            plot_2 = plot_parameter_importance(self.structured_output)
-            plot_3 = plot_parameter_space(self.structured_output)
-            plot_4 = plot_cv_stability(self.structured_output)
-            plot_5 = plot_rank_comparison(self.structured_output)
-            plot_6 = plot_fold_performance(self.structured_output)
-            plot_7 = plot_weighted_score_components(self.structured_output)
-            plot_8 = plot_parameter_interaction(self.structured_output)
-        return plot_1, plot_2, plot_3, plot_4, plot_5, plot_6, plot_7, plot_8
+            plot_1 = plot_performance_distribution(
+                self.structured_output, save_path=None
+            )
+            plot_2 = plot_param_importance(self.structured_output, save_path=None)
+            plot_3 = plot_rank_correlation(self.structured_output, save_path=None)
+            plot_4 = plot_cross_validation_analysis(
+                self.structured_output, save_path=None
+            )
+            return plot_1, plot_2, plot_3, plot_4
+        else:
+            return self.logger.error(
+                "To visualize the results you first need to perform the HPO."
+            )
 
     # Main Hyperparameters tuning function
     def hp_tuning(

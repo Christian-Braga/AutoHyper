@@ -1,21 +1,13 @@
 from .general import (
-    plot_performance_vs_frequency,
-    plot_parameter_importance,
-    plot_parameter_space,
-    plot_cv_stability,
-    plot_rank_comparison,
-    plot_fold_performance,
-    plot_weighted_score_components,
-    plot_parameter_interaction,
+    plot_performance_distribution,
+    plot_param_importance,
+    plot_rank_correlation,
+    plot_cross_validation_analysis,
 )
 
 __all__ = [
-    "plot_performance_vs_frequency",
-    "plot_parameter_importance",
-    "plot_parameter_space",
-    "plot_cv_stability",
-    "plot_rank_comparison",
-    "plot_fold_performance",
-    "plot_weighted_score_components",
-    "plot_parameter_interaction",
+    "plot_performance_distribution",
+    "plot_param_importance",
+    "plot_rank_correlation",
+    "plot_cross_validation_analysis",
 ]
