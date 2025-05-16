@@ -234,6 +234,12 @@ class HPO:
 
         return best_configuration
 
+    # Evolutionary Algorithm
+    def evolutionary_algorithm(
+        self,
+    ):
+        pass
+
     # Plot results of the tuning loop
     def plot_results(self):
         if self.structured_output is not None:
