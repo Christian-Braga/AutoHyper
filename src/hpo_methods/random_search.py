@@ -1,4 +1,7 @@
 # ** Random Search Method for Hyperparameter Optimization **
+import random
+
+
 class RandomSearch:
     """Random search HPO method.
 
@@ -31,7 +34,6 @@ class RandomSearch:
         list
             List of randomly generated hyperparameter configurations.
         """
-        import random
 
         if n_trials <= 0:
             return []
