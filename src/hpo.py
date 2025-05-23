@@ -147,7 +147,7 @@ class HPO:
     # > Main functions
 
     # Grid search
-    def grid_search(self, X, y, n_splits, n_trials: Optional[int] = None):
+    def grid_search(self, X, y, n_splits):
         self.logger.info("Starting Grid Search...")
 
         hyperparameters_configs = self.grid_search_method.grid_combinations()

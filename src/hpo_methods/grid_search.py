@@ -43,3 +43,15 @@ class GridSearch:
         param_combinations = list(itertools.product(*hp_values))
 
         return [dict(zip(hp_keys, combo)) for combo in param_combinations]
+
+
+if __name__ == "__main__":
+    hp_grid = {
+        "lr": [0.01, 0.001],
+        "batch_size": [32, 64],
+        "optimizer": ["adam", "sgd"],
+    }
+
+    gs = GridSearch(hp_grid)
+    combinations = gs.grid_combinations()
+    print(combinations)
