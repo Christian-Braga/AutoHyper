@@ -5,9 +5,7 @@ import sys
 # Ensure parent dir is in path for 'utils' module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import itertools
 import json
-import random
 import time
 from collections import Counter
 from typing import Optional
