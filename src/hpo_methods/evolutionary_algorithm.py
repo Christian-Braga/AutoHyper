@@ -1,5 +1,7 @@
 # * Evolutionary Algorithm * #
 
+# TO DO -> COMPLETARE MECCANISMO DI PARENT SELECTION CON I SUOI METODI
+
 # EA non è lanciato per ogni split dell' inner cv, Invece, ogni volta che
 # l'EA valuta un individuo, usa l'intero inner CV per stimare la fitness di quell’individuo.
 # quindi l'inner cv loop è inserito nella fitness function dell' EA.
@@ -50,6 +52,8 @@ class EvolutionaryAlgorithm:
         # Set-up Logger
         self.logger = get_logger("HPO")
 
+    # *  Population Initialization
+
     def _initialization_population(self, n_new_configs: Optional[int] = None):
         # Create the initial population
 
@@ -85,6 +89,8 @@ class EvolutionaryAlgorithm:
                 configurations.append(configuration)
         return configurations
 
+    # * Fitness Computation Function
+
     def _fitness_computation(
         self, configuration: dict, X: pd.DataFrame, y: pd.DataFrame, n_splits_cv: int
     ):
@@ -99,14 +105,47 @@ class EvolutionaryAlgorithm:
         scores = cross_val_score(model_instance, X, y, cv=n_splits_cv, scoring=scoring)
         return {"config": configuration, "fitness": scores.mean()}
 
-    def _selection_mechanisms(self):
+    # * Parent Selection Functions
+
+    # > Main parent selection function
+    def _parent_selection(
+        self,
+        population: list,
+        parent_selection_rateo: float,
+        parent_selection_method: str,
+    ):
+        # questa é la funzione principale prende in input la popolazione, il rateo di selezione,
+        # i metodi di selezione e restituisce le config selezionate
         pass
+
+    # > Method for Parent Selection: Neutral Selection
+    def _neutral_selection(self):
+        pass
+
+    # > Method for Parent Selection: Fitness Proportional Selection
+    def fitness_proportional_selection(self):
+        pass
+
+    # > Method for Parent Selection: Tournament Selection
+    def tournament_selection(self):
+        pass
+
+    # * Survival Selection Function
+
+    def _survival_selection(self):
+        pass
+
+    # * Offsprings Generation Function
 
     def _generation_mechanisms(self):
         pass
 
+    # * Visualization Function
+
     def _visualization(self):
         pass
+
+    # * Main Method: Evolution Process
 
     def evolution_process(
         self,
@@ -117,5 +156,6 @@ class EvolutionaryAlgorithm:
         selection_mechanism: str,
         generation_mechanism: str,
         n_new_configs: Optional[int],
+        parent_selection_rateo: float,
     ):
         pass
