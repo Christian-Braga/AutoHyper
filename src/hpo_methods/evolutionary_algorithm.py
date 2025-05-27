@@ -1,6 +1,10 @@
 # * Evolutionary Algorithm * #
 
-# TO DO -> COMPLETARE MECCANISMO DI PARENT SELECTION CON I SUOI METODI
+# TO DO
+# -> RIVEDERE BENE MECCANISMO DI CREAZIONE CONFIGURAZIONI RANDOM, GUARDANDO L'OUTPUT NON SEMBRA CI SIA DIVERSITÁ
+# INOLTRE DEVO AGGIUNGERE IL CONTROLLO ANCHE CHE LE CONFIGURAZIONI NON SIANO UGUALI (FORSE DA CONTROLLARE ANCHE
+# NELLA LOGICA DI Random search)
+# -> COMPLETARE MECCANISMO DI PARENT SELECTION CON I SUOI METODI
 
 # EA non è lanciato per ogni split dell' inner cv, Invece, ogni volta che
 # l'EA valuta un individuo, usa l'intero inner CV per stimare la fitness di quell’individuo.
@@ -39,6 +43,7 @@ from typing import Optional
 from sklearn.model_selection import cross_val_score
 from utils.logger import get_logger
 import random
+import math
 
 
 class EvolutionaryAlgorithm:
@@ -54,7 +59,7 @@ class EvolutionaryAlgorithm:
 
     # *  Population Initialization
 
-    def _initialization_population(self, n_new_configs: Optional[int] = None):
+    def _initialization_population(self, n_new_configs):
         # Create the initial population
 
         # unpack the given hyperparameters without creating a new ones
@@ -87,6 +92,10 @@ class EvolutionaryAlgorithm:
                         configuration[param] = random.choice(values)
 
                 configurations.append(configuration)
+
+        print("Popolazione iniziale:")
+        for c in configurations:
+            print(c)
         return configurations
 
     # * Fitness Computation Function
@@ -105,29 +114,19 @@ class EvolutionaryAlgorithm:
         scores = cross_val_score(model_instance, X, y, cv=n_splits_cv, scoring=scoring)
         return {"config": configuration, "fitness": scores.mean()}
 
-    # * Parent Selection Functions
-
-    # > Main parent selection function
-    def _parent_selection(
-        self,
-        population: list,
-        parent_selection_rateo: float,
-        parent_selection_method: str,
-    ):
-        # questa é la funzione principale prende in input la popolazione, il rateo di selezione,
-        # i metodi di selezione e restituisce le config selezionate
-        pass
+    # * Parent Selection Function
 
     # > Method for Parent Selection: Neutral Selection
-    def _neutral_selection(self):
-        pass
+    def _neutral_selection(self, population: list, parents_selection_rateo: float):
+        number_of_parents = math.ceil(parents_selection_rateo * len(population))
+        return random.sample(population, k=number_of_parents)
 
     # > Method for Parent Selection: Fitness Proportional Selection
-    def fitness_proportional_selection(self):
+    def _fitness_proportional_selection(self):
         pass
 
     # > Method for Parent Selection: Tournament Selection
-    def tournament_selection(self):
+    def _tournament_selection(self):
         pass
 
     # * Survival Selection Function
@@ -153,9 +152,56 @@ class EvolutionaryAlgorithm:
         X: pd.DataFrame,
         y: pd.DataFrame,
         n_splits_cv: int,
-        selection_mechanism: str,
+        parents_selection_mechanism: str,
         generation_mechanism: str,
-        n_new_configs: Optional[int],
-        parent_selection_rateo: float,
+        parents_selection_rateo: float,
+        n_new_configs: Optional[int] = None,
     ):
-        pass
+        # Step 1: Initialization of the population
+        population = self._initialization_population(n_new_configs=n_new_configs)
+
+        # Step 2: Parent Selection
+        if parents_selection_mechanism == "neutral_selection":
+            parents = self._neutral_selection(
+                population=population, parents_selection_rateo=parents_selection_rateo
+            )
+        return parents
+
+        # Step 3: Offsprings Generation
+
+        # Step 4: Survival Selection
+
+
+if __name__ == "__main__":
+    from sklearn.datasets import load_iris
+    from sklearn.tree import DecisionTreeClassifier
+
+    # Carica dataset
+    data = load_iris(as_frame=True)
+    X = data.data
+    y = data.target
+
+    # Definizione del modello e degli iperparametri da ottimizzare
+    model = DecisionTreeClassifier
+    hyperparameters = {"max_depth": [2, 3, 4, 5], "min_samples_split": [2, 4, 6]}
+
+    # Crea istanza dell'algoritmo evolutivo
+    ea = EvolutionaryAlgorithm(
+        model=model, hyperparameters=hyperparameters, task="classification"
+    )
+
+    # Avvia processo evolutivo (inizialmente testiamo solo parent selection)
+    parents = ea.evolution_process(
+        task="classification",
+        X=X,
+        y=y,
+        n_splits_cv=5,
+        parents_selection_mechanism="neutral_selection",
+        generation_mechanism=None,
+        parents_selection_rateo=0.4,  # ad esempio il 40% della popolazione iniziale
+        n_new_configs=10,  # 10 configurazioni casuali in aggiunta a quelle generate da product
+    )
+
+    print("Genitori selezionati:")
+    for p in parents:
+        print(p)
