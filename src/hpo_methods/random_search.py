@@ -2,6 +2,7 @@
 import random
 
 
+# AGGIUNGERE CHECK CHE LE CONFIGURAZIONI CREATE NON SIANO UGUALI ALLE PRECENDETI E TESTARE
 class RandomSearch:
     """Random search HPO method.
 

@@ -68,6 +68,41 @@ class EvolutionaryAlgorithm:
         param_combinations = list(itertools.product(*hp_values))
         configurations = [dict(zip(hp_keys, combo)) for combo in param_combinations]
 
+        # Create set
+        seen_configs = set(frozenset(cfg.items()) for cfg in configurations)
+
+        # generate random configuration if requested
+        if n_new_configs is not None:
+            max_attempts = n_new_configs * 10
+            attempts = 0
+            generated = 0
+
+            while generated < n_new_configs and attempts < max_attempts:
+                configuration = {}
+
+                for param, values in self.hp.items():
+                    if all(isinstance(v, int) for v in values):
+                        configuration[param] = random.randint(min(values), max(values))
+                    elif all(isinstance(v, float) for v in values):
+                        configuration[param] = round(
+                            random.uniform(min(values), max(values)), 2
+                        )
+                    else:
+                        configuration[param] = random.choice(values)
+
+                frozen = frozenset(configuration.items())
+
+                if frozen not in seen_configs:
+                    configurations.append(configuration)
+                    seen_configs.add(frozen)
+                    generated += 1
+                attempts += 1
+
+            if generated < n_new_configs:
+                self.logger.warning(
+                    f"Only {generated}/{n_new_configs} unique configurations could be generated after {attempts} attempts."
+                )
+
         # create random configuration if requested
         # check valid input
         if n_new_configs is not None:
@@ -79,21 +114,6 @@ class EvolutionaryAlgorithm:
                     "n_new_configs must be a non-negative integer or None."
                 )
 
-            # generate random configuration
-            for _ in range(n_new_configs):
-                configuration = {}
-
-                for param, values in self.hp.items():
-                    if all(isinstance(v, int) for v in values):
-                        configuration[param] = random.randint(min(values), max(values))
-                    elif all(isinstance(v, float) for v in values):
-                        configuration[param] = random.uniform(min(values), max(values))
-                    else:
-                        configuration[param] = random.choice(values)
-
-                configurations.append(configuration)
-
-        print("Popolazione iniziale:")
         for c in configurations:
             print(c)
         return configurations
@@ -183,7 +203,7 @@ if __name__ == "__main__":
 
     # Definizione del modello e degli iperparametri da ottimizzare
     model = DecisionTreeClassifier
-    hyperparameters = {"max_depth": [2, 3, 4, 5], "min_samples_split": [2, 4, 6]}
+    hyperparameters = {"max_depth": [2, 1], "min_samples_split": [1]}
 
     # Crea istanza dell'algoritmo evolutivo
     ea = EvolutionaryAlgorithm(
