@@ -1,9 +1,6 @@
 # * Evolutionary Algorithm * #
 
 # TO DO
-# -> RIVEDERE BENE MECCANISMO DI CREAZIONE CONFIGURAZIONI RANDOM, GUARDANDO L'OUTPUT NON SEMBRA CI SIA DIVERSITÁ
-# INOLTRE DEVO AGGIUNGERE IL CONTROLLO ANCHE CHE LE CONFIGURAZIONI NON SIANO UGUALI (FORSE DA CONTROLLARE ANCHE
-# NELLA LOGICA DI Random search)
 # -> COMPLETARE MECCANISMO DI PARENT SELECTION CON I SUOI METODI
 
 # EA non è lanciato per ogni split dell' inner cv, Invece, ogni volta che
@@ -38,6 +35,8 @@
 # Scrivo questa classe in maniera il più possibile indipendente da hpo poi eventualmente la adatto per ciò che serve
 
 import pandas as pd
+import numpy as np
+from numpy.random import choice
 import itertools
 from typing import Optional
 from sklearn.model_selection import cross_val_score
@@ -52,7 +51,7 @@ class EvolutionaryAlgorithm:
     def __init__(self, model, hyperparameters: dict, task: str):
         self.model = model
         self.hp = hyperparameters
-        self.task = (task,)
+        self.task = task
 
         # Set-up Logger
         self.logger = get_logger("HPO")
@@ -142,8 +141,47 @@ class EvolutionaryAlgorithm:
         return random.sample(population, k=number_of_parents)
 
     # > Method for Parent Selection: Fitness Proportional Selection
-    def _fitness_proportional_selection(self):
-        pass
+    def _fitness_proportional_selection(
+        self,
+        population: list,
+        parents_selection_rateo: float,
+        X: pd.DataFrame,
+        y: pd.DataFrame,
+        n_splits_cv: int,
+    ):
+        # compute the fitness
+        configurations_fitness: list[dict] = []
+        for cfg in population:
+            res = self._fitness_computation(cfg, X, y, n_splits_cv)
+            configurations_fitness.append(res)
+
+        if not configurations_fitness:  # popolazione vuota
+            raise RuntimeError("Empty population!")
+
+        fitness_vals = np.array(
+            [d["fitness"] for d in configurations_fitness], dtype=float
+        )
+        tot_fit = fitness_vals.sum()
+
+        if tot_fit == 0:
+            self.logger.warning("All fitness = 0 -> neutral selection fallback")
+            return self._neutral_selection(population, parents_selection_rateo)
+
+        # compute the probabilities of each config to be sampled
+        probabilities = fitness_vals / tot_fit
+
+        k = math.ceil(parents_selection_rateo * len(configurations_fitness))
+        k = min(k, len(configurations_fitness))
+
+        # selection
+        selected = choice(
+            configurations_fitness,
+            size=k,
+            replace=False,
+            p=probabilities,
+        )
+
+        return [entry["config"] for entry in selected]
 
     # > Method for Parent Selection: Tournament Selection
     def _tournament_selection(self):
@@ -185,7 +223,17 @@ class EvolutionaryAlgorithm:
             parents = self._neutral_selection(
                 population=population, parents_selection_rateo=parents_selection_rateo
             )
-        return parents
+            return parents
+
+        elif parents_selection_mechanism == "fitness_proportional_selection":
+            parents = self._fitness_proportional_selection(
+                population=population,
+                parents_selection_rateo=parents_selection_rateo,
+                X=X,
+                y=y,
+                n_splits_cv=n_splits_cv,
+            )
+            return parents
 
         # Step 3: Offsprings Generation
 
@@ -203,7 +251,7 @@ if __name__ == "__main__":
 
     # Definizione del modello e degli iperparametri da ottimizzare
     model = DecisionTreeClassifier
-    hyperparameters = {"max_depth": [2, 1], "min_samples_split": [1]}
+    hyperparameters = {"max_depth": [1, 3, 4], "min_samples_split": [3, 5]}
 
     # Crea istanza dell'algoritmo evolutivo
     ea = EvolutionaryAlgorithm(
@@ -216,10 +264,10 @@ if __name__ == "__main__":
         X=X,
         y=y,
         n_splits_cv=5,
-        parents_selection_mechanism="neutral_selection",
+        parents_selection_mechanism="fitness_proportional_selection",
         generation_mechanism=None,
         parents_selection_rateo=0.4,  # ad esempio il 40% della popolazione iniziale
-        n_new_configs=10,  # 10 configurazioni casuali in aggiunta a quelle generate da product
+        # n_new_configs=10,  # 10 configurazioni casuali in aggiunta a quelle generate da product
     )
 
     print("Genitori selezionati:")
