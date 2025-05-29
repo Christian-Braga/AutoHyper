@@ -1,7 +1,7 @@
 # * Evolutionary Algorithm * #
 
 # TO DO
-# -> COMPLETARE MECCANISMO DI PARENT SELECTION CON I SUOI METODI
+# -> COMPLETARE MECCANISMO DI TOURNAMENT SELECTION POI FARE GENERATION POI TESTARE IL TUTTO CON METODO DI VISUALIZZAZIONE
 
 # EA non è lanciato per ogni split dell' inner cv, Invece, ogni volta che
 # l'EA valuta un individuo, usa l'intero inner CV per stimare la fitness di quell’individuo.
@@ -223,6 +223,7 @@ class EvolutionaryAlgorithm:
             parents = self._neutral_selection(
                 population=population, parents_selection_rateo=parents_selection_rateo
             )
+
             return parents
 
         elif parents_selection_mechanism == "fitness_proportional_selection":
@@ -233,6 +234,7 @@ class EvolutionaryAlgorithm:
                 y=y,
                 n_splits_cv=n_splits_cv,
             )
+
             return parents
 
         # Step 3: Offsprings Generation
