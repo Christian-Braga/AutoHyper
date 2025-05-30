@@ -184,8 +184,37 @@ class EvolutionaryAlgorithm:
         return [entry["config"] for entry in selected]
 
     # > Method for Parent Selection: Tournament Selection
-    def _tournament_selection(self):
-        pass
+    def _tournament_selection(
+        self,
+        population: list,
+        parents_selection_rateo: float,
+        X: pd.DataFrame,
+        y: pd.DataFrame,
+        n_splits_cv: int,
+    ):
+        # group dimesion fixed at the 10% of the population
+        N = len(population)
+        k = max(2, min(int(round(0.1 * N)), N))
+        parents = []
+
+        # sampling at random k individual from the population
+        for configuration in range(math.ceil(parents_selection_rateo * N)):
+            tournament_group = random.sample(population, k)
+
+            # compute the fitness of the sampled group
+            fitness_results = []
+            for cfg in tournament_group:
+                fitness_results.append(
+                    self._fitness_computation(
+                        configuration=cfg, X=X, y=y, n_splits_cv=n_splits_cv
+                    )
+                )
+
+            # exctract the better configuratrion and add it to the parents group
+            best = max(fitness_results, key=lambda d: d["fitness"])
+            parents.append(best["config"])
+
+        return parents
 
     # * Survival Selection Function
 
@@ -237,6 +266,17 @@ class EvolutionaryAlgorithm:
 
             return parents
 
+        elif parents_selection_mechanism == "tournament_selection":
+            parents = self._tournament_selection(
+                population=population,
+                parents_selection_rateo=parents_selection_rateo,
+                X=X,
+                y=y,
+                n_splits_cv=n_splits_cv,
+            )
+
+            return parents
+
         # Step 3: Offsprings Generation
 
         # Step 4: Survival Selection
@@ -266,7 +306,7 @@ if __name__ == "__main__":
         X=X,
         y=y,
         n_splits_cv=5,
-        parents_selection_mechanism="fitness_proportional_selection",
+        parents_selection_mechanism="tournament_selection",
         generation_mechanism=None,
         parents_selection_rateo=0.4,  # ad esempio il 40% della popolazione iniziale
         # n_new_configs=10,  # 10 configurazioni casuali in aggiunta a quelle generate da product
