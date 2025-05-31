@@ -216,14 +216,17 @@ class EvolutionaryAlgorithm:
 
         return parents
 
+    # * Offsprings Generation Functions
+
+    def _crossover(self):
+        pass
+
+    def _mutation(self):
+        pass
+
     # * Survival Selection Function
 
     def _survival_selection(self):
-        pass
-
-    # * Offsprings Generation Function
-
-    def _generation_mechanisms(self):
         pass
 
     # * Visualization Function
