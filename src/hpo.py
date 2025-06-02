@@ -9,7 +9,6 @@ import json
 import time
 from collections import Counter
 from typing import Optional
-
 import numpy as np
 import pandas as pd
 import xgboost as xgb
@@ -26,13 +25,6 @@ from sklearn.metrics import (
 from sklearn.model_selection import KFold
 
 from utils.logger import get_logger
-
-from src.visualizations import (
-    plot_performance_distribution,
-    plot_param_importance,
-    plot_rank_correlation,
-    plot_cross_validation_analysis,
-)
 
 
 # HPO methods
@@ -261,23 +253,6 @@ class HPO:
             n_new_configs=n_new_configs,
         )
         return best_config_EA
-
-    # Plot results of the tuning loop
-    def plot_results(self):
-        if self.structured_output is not None:
-            plot_1 = plot_performance_distribution(
-                self.structured_output, save_path=None
-            )
-            plot_2 = plot_param_importance(self.structured_output, save_path=None)
-            plot_3 = plot_rank_correlation(self.structured_output, save_path=None)
-            plot_4 = plot_cross_validation_analysis(
-                self.structured_output, save_path=None
-            )
-            return plot_1, plot_2, plot_3, plot_4
-        else:
-            return self.logger.error(
-                "To visualize the results you first need to perform the HPO."
-            )
 
     # Main Hyperparameters tuning function
     def hp_tuning(
@@ -651,12 +626,8 @@ if __name__ == "__main__":
     # test run
     print(
         test_hpo.hp_tuning(
-            hpo_method="evolutionary_algorithm",
+            hpo_method="grid_search",
             outer_k=5,
             inner_k=3,
-            parents_selection_mechanism="fitness_proportional_selection",
-            parents_selection_ratio=0.5,
-            max_generations=20,
-            n_new_configs=10,
         )
     )
