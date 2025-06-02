@@ -1,380 +1,267 @@
 # * Evolutionary Algorithm * #
 
-# TO DO
-# -> COMPLETARE MECCANISMO DI TOURNAMENT SELECTION POI FARE GENERATION POI TESTARE IL TUTTO CON METODO DI VISUALIZZAZIONE
-
-# EA non è lanciato per ogni split dell' inner cv, Invece, ogni volta che
-# l'EA valuta un individuo, usa l'intero inner CV per stimare la fitness di quell’individuo.
-# quindi l'inner cv loop è inserito nella fitness function dell' EA.
-
-
-# elementi da implementare nel EA:
-
-# * 1
-# funzione per generare la popolazione iniziale a partire da una configurazione di Hyperparametri (a random)
-# deve consentire di generare n configurazioni decisa a random dall'utente o fissare se l'utente non vuole generarne di nuove ma partire
-# da quelle che ha
-
-# * 2
-# fitness function, utilizzata per valutare la bontà di una configurazione, questa coinvolge quindi la inner cross validation e misura l'accuratezza
-# della configurazione
-
-# * 3
-# selection process
-# funzione per fare parent selection e penso anche survival selection? é la stessa?
-
-# * 4
-# funzione con metodi di generazione offsprings mutation and recombination
-
-# * 5
-# funzione principale algoritmo evolutivo
-
-# * 6
-# funzione per visualization
-
-# Scrivo questa classe in maniera il più possibile indipendente da hpo poi eventualmente la adatto per ciò che serve
-
 import pandas as pd
 import numpy as np
 from numpy.random import choice
 import itertools
-from typing import Optional
+from typing import Optional, Dict, List, Tuple
 from sklearn.model_selection import cross_val_score
 from utils.logger import get_logger
 import random
 import math
+import matplotlib.pyplot as plt
+import seaborn as sns
+from collections import defaultdict
 
 
 class EvolutionaryAlgorithm:
-    """To DO."""
+    """
+    Evolutionary Algorithm for Hyperparameter Optimization.
+    """
 
+    # Initialization
     def __init__(self, model, hyperparameters: dict, task: str):
         self.model = model
         self.hp = hyperparameters
         self.task = task
 
-        # Set-up Logger
+        # Evaluation cache
+        self._fitness_cache: Dict[frozenset, Dict] = {}
+
+        # Tracking for visualization
+        self.generation_stats: List[Dict] = []
+        self.best_fitness_history: List[float] = []
+        self.diversity_history: List[float] = []
+        self.parameter_evolution: defaultdict = defaultdict(list)
+
         self.logger = get_logger("HPO")
 
-    # *  Population Initialization
+    # Validator
+    def _is_valid_config(self, cfg: Dict) -> bool:
+        # True se il modello accetta la configurazione (nessuna eccezione).
+        try:
+            _ = self.model(**cfg)
+            return True
+        except (TypeError, ValueError):
+            return False
 
-    def _initialization_population(self, n_new_configs):
-        # Create the initial population
-
-        # unpack the given hyperparameters without creating a new ones
-        self.logger.debug("Create the HP configuration")
-
+    # Population Initialization
+    def _initialization_population(self, n_new_configs: Optional[int]) -> List[Dict]:
         hp_keys = list(self.hp.keys())
         hp_values = list(self.hp.values())
+
+        # combinazioni cartesiane filtrate con validator
         param_combinations = list(itertools.product(*hp_values))
-        configurations = [dict(zip(hp_keys, combo)) for combo in param_combinations]
+        configurations = [
+            cfg
+            for cfg in (dict(zip(hp_keys, combo)) for combo in param_combinations)
+            if self._is_valid_config(cfg)
+        ]
+        self.logger.debug(f"{len(configurations)} standard configs created")
 
-        self.logger.debug(f"{len(configurations)} Standard configurations created")
+        seen_configs = {frozenset(c.items()) for c in configurations}
 
-        # Create set
-        seen_configs = set(frozenset(cfg.items()) for cfg in configurations)
+        # extra random configs
+        if n_new_configs:
+            if n_new_configs < 0:
+                raise ValueError("n_new_configs must be non-negative or None")
 
-        # generate random configuration if requested
-        if n_new_configs is not None:
             max_attempts = n_new_configs * 10
-            attempts = 0
-            generated = 0
+            generated = attempts = 0
 
             while generated < n_new_configs and attempts < max_attempts:
-                configuration = {}
-
-                for param, values in self.hp.items():
-                    if all(isinstance(v, int) for v in values):
-                        configuration[param] = random.randint(min(values), max(values))
-                    elif all(isinstance(v, float) for v in values):
-                        configuration[param] = round(
-                            random.uniform(min(values), max(values)), 2
-                        )
+                conf = {}
+                for p, vals in self.hp.items():
+                    if all(isinstance(v, int) for v in vals):
+                        conf[p] = random.randint(min(vals), max(vals))
+                    elif all(isinstance(v, float) for v in vals):
+                        conf[p] = round(random.uniform(min(vals), max(vals)), 2)
                     else:
-                        configuration[param] = random.choice(values)
+                        conf[p] = random.choice(vals)
 
-                frozen = frozenset(configuration.items())
-
-                if frozen not in seen_configs:
-                    configurations.append(configuration)
+                frozen = frozenset(conf.items())
+                if self._is_valid_config(conf) and frozen not in seen_configs:
+                    configurations.append(conf)
                     seen_configs.add(frozen)
                     generated += 1
                 attempts += 1
 
             if generated < n_new_configs:
                 self.logger.warning(
-                    f"Only {generated}/{n_new_configs} unique configurations could be generated after {attempts} attempts."
+                    f"Only {generated}/{n_new_configs} unique random configs generated."
                 )
-
-        # create random configuration if requested
-        # check valid input
-        if n_new_configs is not None:
-            if isinstance(n_new_configs, int) and n_new_configs < 0:
-                self.logger.error(
-                    f"Invalid value for n_new_configs: {n_new_configs}. It must be a non-negative integer or None."
-                )
-                raise ValueError(
-                    "n_new_configs must be a non-negative integer or None."
-                )
-
-        self.logger.debug(
-            f"{n_new_configs} new random configurations created. Total number of element in the initial population: {len(configurations)}"
-        )
 
         return configurations
 
-    # * Fitness Computation Function
-
+    # Fitness & Evaluation
     def _fitness_computation(
-        self, configuration: dict, X: pd.DataFrame, y: pd.DataFrame, n_splits_cv: int
-    ):
-        # the fitness function is performed by doing k-fold CV
+        self, configuration: Dict, X: pd.DataFrame, y: pd.DataFrame, n_splits_cv: int
+    ) -> Dict:
+        key = frozenset(configuration.items())
+        if key in self._fitness_cache:
+            return self._fitness_cache[key]
+
         model_instance = self.model(**configuration)
-        if self.task == "classification":
-            scoring = "accuracy"
-        elif self.task == "regression":
-            scoring = "r2"
-        else:
-            raise ValueError(f"Unknown task type: {self.task}")
+        scoring = "accuracy" if self.task == "classification" else "r2"
         scores = cross_val_score(model_instance, X, y, cv=n_splits_cv, scoring=scoring)
-        return {"config": configuration, "fitness": scores.mean()}
 
-    # * Parent Selection Function
+        res = {"config": configuration, "fitness": scores.mean()}
+        self._fitness_cache[key] = res
+        return res
 
-    # > Method for Parent Selection: Neutral Selection
-    def _neutral_selection(self, population: list, parents_selection_rateo: float):
-        self.logger.debug("Parent Selection Method: Neutral selection")
+    def _evaluate_population(
+        self, pop: List[Dict], X: pd.DataFrame, y: pd.DataFrame, cv: int
+    ) -> List[Dict]:
+        evaluated = []
+        for cfg in pop:
+            if not self._is_valid_config(cfg):
+                self.logger.debug("Invalid config skipped")
+                continue
+            evaluated.append(self._fitness_computation(cfg, X, y, cv))
+        return evaluated
 
-        number_of_parents = math.ceil(parents_selection_rateo * len(population))
-        return random.sample(population, k=number_of_parents)
+    # Parent Selection
+    def _neutral_selection(self, pop: List[Dict], ratio: float) -> List[Dict]:
+        k = math.ceil(ratio * len(pop))
+        return random.sample(pop, k)
 
-    # > Method for Parent Selection: Fitness Proportional Selection
     def _fitness_proportional_selection(
-        self,
-        population: list,
-        parents_selection_rateo: float,
-        X: pd.DataFrame,
-        y: pd.DataFrame,
-        n_splits_cv: int,
-    ):
-        self.logger.debug("Parent Selection Method: Fitness Proportional Selection")
-        # compute the fitness
-        configurations_fitness: list[dict] = []
-        for cfg in population:
-            res = self._fitness_computation(cfg, X, y, n_splits_cv)
-            configurations_fitness.append(res)
+        self, eval_pop: List[Dict], ratio: float
+    ) -> List[Dict]:
+        fitness = np.array([d["fitness"] for d in eval_pop])
+        if fitness.sum() == 0:
+            return self._neutral_selection([d["config"] for d in eval_pop], ratio)
 
-        if not configurations_fitness:  # popolazione vuota
-            raise RuntimeError("Empty population!")
+        probs = fitness / fitness.sum()
+        k = min(math.ceil(ratio * len(eval_pop)), len(eval_pop))
+        selected = choice(eval_pop, size=k, replace=False, p=probs)
+        return [e["config"] for e in selected]
 
-        fitness_vals = np.array(
-            [d["fitness"] for d in configurations_fitness], dtype=float
-        )
-        tot_fit = fitness_vals.sum()
-
-        if tot_fit == 0:
-            self.logger.warning("All fitness = 0 -> neutral selection fallback")
-            return self._neutral_selection(population, parents_selection_rateo)
-
-        # compute the probabilities of each config to be sampled
-        probabilities = fitness_vals / tot_fit
-
-        k = math.ceil(parents_selection_rateo * len(configurations_fitness))
-        k = min(k, len(configurations_fitness))
-
-        # selection
-        selected = choice(
-            configurations_fitness,
-            size=k,
-            replace=False,
-            p=probabilities,
-        )
-
-        return [entry["config"] for entry in selected]
-
-    # > Method for Parent Selection: Tournament Selection
-    def _tournament_selection(
-        self,
-        population: list,
-        parents_selection_rateo: float,
-        X: pd.DataFrame,
-        y: pd.DataFrame,
-        n_splits_cv: int,
-    ):
-        self.logger.debug("Parent Selection Method: Tournament Selection")
-        # group dimesion fixed at the 10% of the population
-        N = len(population)
-        k = max(2, min(int(round(0.1 * N)), N))
+    def _tournament_selection(self, eval_pop: List[Dict], ratio: float) -> List[Dict]:
+        N = len(eval_pop)
+        tour_size = max(2, min(int(0.1 * N), N))
+        num_parents = math.ceil(ratio * N)
         parents = []
-
-        # sampling at random k individual from the population
-        for configuration in range(math.ceil(parents_selection_rateo * N)):
-            tournament_group = random.sample(population, k)
-
-            # compute the fitness of the sampled group
-            fitness_results = []
-            for cfg in tournament_group:
-                fitness_results.append(
-                    self._fitness_computation(
-                        configuration=cfg, X=X, y=y, n_splits_cv=n_splits_cv
-                    )
-                )
-
-            # exctract the better configuratrion and add it to the parents group
-            best = max(fitness_results, key=lambda d: d["fitness"])
+        for _ in range(num_parents):
+            group = random.sample(eval_pop, tour_size)
+            best = max(group, key=lambda d: d["fitness"])
             parents.append(best["config"])
-
         return parents
 
-    # * Offsprings Generation Functions
-
-    # VALUTA SE DEPRECARE CROSSOVER, NON HA SENSO PER COME L'HO FATTO ORA
-    def _crossover(
-        self, parents: list[dict], existing_population: list[dict]
-    ) -> list[dict]:
-        offspring = []
-        hp_keys = list(self.hp.keys())
-
-        # Existing configs
-        seen_configs = set(frozenset(cfg.items()) for cfg in existing_population)
-
-        max_attempts = len(parents) * 10
-        attempts = 0
-
-        while len(offspring) < len(parents) and attempts < max_attempts:
-            p1, p2 = random.sample(parents, k=2)
-            child = {
-                param: p1[param] if random.random() < 0.5 else p2[param]
-                for param in hp_keys
-            }
-
-            frozen = frozenset(child.items())
-            if frozen not in seen_configs:
-                offspring.append(child)
-                seen_configs.add(frozen)
-            attempts += 1
-
-        if len(offspring) < len(parents):
-            self.logger.warning(
-                f"Only {len(offspring)} unique offspring generated from {len(parents)} parents after {attempts} attempts."
-            )
-
-        return offspring
-
-    def _mutation(self, parents: list[dict], population: list[dict]) -> list[dict]:
-        mutated_offspring = []
-        seen_configs = set(frozenset(c.items()) for c in population)
-
+    # Mutation (only mechanism kept per brevità)
+    def _mutation(self, parents: List[Dict], population: List[Dict]) -> List[Dict]:
+        offspring, seen = [], {frozenset(c.items()) for c in population}
         hp_keys = list(self.hp.keys())
 
         for parent in parents:
-            max_attempts = 50
-            attempts = 0
-            mutated = None
-
-            while attempts < max_attempts:
-                new_config = {}
-
-                for param in hp_keys:
-                    # Estrai i valori del parametro dalla popolazione
-                    param_values = [c[param] for c in population]
-
-                    if all(isinstance(v, float) for v in param_values):
-                        low = min(param_values)
-                        high = max(param_values)
-                        new_config[param] = round(random.uniform(low, high), 2)
-
-                    elif all(isinstance(v, int) for v in param_values):
-                        min_val = min(param_values)
-                        max_val = max(param_values)
-                        delta = max(1, int(0.2 * (max_val - min_val)))
-                        new_min = max(1, min_val - delta)
-                        new_max = max_val + delta
-                        new_config[param] = random.randint(new_min, new_max)
-
+            attempts = mutated = 0
+            while attempts < 50 and mutated is None:
+                child = {}
+                for p in hp_keys:
+                    pop_vals = [c[p] for c in population]
+                    if all(isinstance(v, float) for v in pop_vals):
+                        child[p] = round(
+                            random.uniform(min(pop_vals), max(pop_vals)), 2
+                        )
+                    elif all(isinstance(v, int) for v in pop_vals):
+                        lo, hi = min(pop_vals), max(pop_vals)
+                        delta = max(1, int(0.2 * (hi - lo)))
+                        child[p] = random.randint(lo, hi + delta)
                     else:
-                        new_config[param] = random.choice(self.hp[param])
+                        child[p] = random.choice(self.hp[p])
 
-                frozen = frozenset(new_config.items())
-                if frozen not in seen_configs:
-                    mutated = new_config
-                    seen_configs.add(frozen)
-                    break
-
+                frozen = frozenset(child.items())
+                if self._is_valid_config(child) and frozen not in seen:
+                    offspring.append(child)
+                    seen.add(frozen)
+                    mutated = child
                 attempts += 1
+        return offspring
 
-            if mutated is not None:
-                mutated_offspring.append(mutated)
-            else:
-                self.logger.warning(
-                    "Mutation failed to generate a unique configuration after max attempts. Skipping."
+    # Survival (μ + λ)
+    def _survival_selection(
+        self, eval_pop: List[Dict], eval_off: List[Dict]
+    ) -> Tuple[List[Dict], Dict]:
+        mu = len(eval_pop)
+        combined = sorted(eval_pop + eval_off, key=lambda d: d["fitness"], reverse=True)
+        survivors = [e["config"] for e in combined[:mu]]
+        return survivors, combined[0]
+
+    # Stats tracking
+    def _calc_diversity(self, eval_pop: List[Dict]) -> float:
+        if len(eval_pop) <= 1:
+            return 0.0
+        return np.std([d["fitness"] for d in eval_pop])
+
+    def _track_stats(self, gen: int, eval_pop: List[Dict]):
+        fit = [d["fitness"] for d in eval_pop]
+        stats = {
+            "generation": gen,
+            "best_fitness": max(fit),
+            "mean_fitness": np.mean(fit),
+            "diversity": self._calc_diversity(eval_pop),
+        }
+        self.generation_stats.append(stats)
+        self.best_fitness_history.append(stats["best_fitness"])
+        self.diversity_history.append(stats["diversity"])
+
+        for p in self.hp.keys():
+            vals = [d["config"][p] for d in eval_pop]
+            if all(isinstance(v, (int, float)) for v in vals):
+                self.parameter_evolution[p].append(
+                    {"generation": gen, "mean": np.mean(vals), "std": np.std(vals)}
                 )
 
-        return mutated_offspring
-
-    # * Survival Selection Function
-
-    def _survival_selection(self):
-        pass
-
-    # * Visualization Function
-
-    def _visualization(self):
-        pass
-
-    # * Main Method: Evolution Process
-
+    # Main evolution loop
     def evolution_process(
         self,
-        task: str,
         X: pd.DataFrame,
         y: pd.DataFrame,
         n_splits_cv: int,
         parents_selection_mechanism: str,
         generation_mechanism: str,
-        parents_selection_rateo: float,
+        parents_selection_ratio: float,
         n_new_configs: Optional[int] = None,
-    ):
-        # Step 1: Initialization of the population
-        population = self._initialization_population(n_new_configs=n_new_configs)
+        max_generations: int = 10,
+    ) -> Dict:
+        pop = self._initialization_population(n_new_configs)
+        eval_pop = self._evaluate_population(pop, X, y, n_splits_cv)
+        self._track_stats(-1, eval_pop)
+        best = max(eval_pop, key=lambda d: d["fitness"])
 
-        # Step 2: Parent Selection
-        if parents_selection_mechanism == "neutral_selection":
-            parents = self._neutral_selection(
-                population=population, parents_selection_rateo=parents_selection_rateo
-            )
+        for gen in range(max_generations):
+            # parent selection
+            if parents_selection_mechanism == "neutral_selection":
+                parents = self._neutral_selection(
+                    [d["config"] for d in eval_pop], parents_selection_ratio
+                )
+            elif parents_selection_mechanism == "fitness_proportional_selection":
+                parents = self._fitness_proportional_selection(
+                    eval_pop, parents_selection_ratio
+                )
+            elif parents_selection_mechanism == "tournament_selection":
+                parents = self._tournament_selection(eval_pop, parents_selection_ratio)
+            else:
+                raise ValueError("Unknown parent selection mechanism.")
 
-        elif parents_selection_mechanism == "fitness_proportional_selection":
-            parents = self._fitness_proportional_selection(
-                population=population,
-                parents_selection_rateo=parents_selection_rateo,
-                X=X,
-                y=y,
-                n_splits_cv=n_splits_cv,
-            )
+            # offspring generation (only mutation shown)
+            if generation_mechanism == "mutation":
+                offspring = self._mutation(parents, [d["config"] for d in eval_pop])
+            else:
+                offspring = []  # placeholder
 
-        elif parents_selection_mechanism == "tournament_selection":
-            parents = self._tournament_selection(
-                population=population,
-                parents_selection_rateo=parents_selection_rateo,
-                X=X,
-                y=y,
-                n_splits_cv=n_splits_cv,
-            )
+            eval_off = self._evaluate_population(offspring, X, y, n_splits_cv)
 
-        # Step 3: Offsprings Generation
+            # survival
+            pop, best_curr = self._survival_selection(eval_pop, eval_off)
+            eval_pop = self._evaluate_population(pop, X, y, n_splits_cv)
 
-        if generation_mechanism == "crossover":
-            offsprings = self._crossover(
-                parents=parents, existing_population=population
-            )
-            return offsprings
+            if best_curr["fitness"] > best["fitness"]:
+                best = best_curr
 
-        elif generation_mechanism == "mutation":
-            offsprings = self._mutation(parents=parents, population=population)
-            return offsprings
+            self._track_stats(gen, eval_pop)
 
-        # Step 4: Survival Selection
+        return best
 
 
 if __name__ == "__main__":
@@ -395,22 +282,14 @@ if __name__ == "__main__":
         model=model, hyperparameters=hyperparameters, task="classification"
     )
 
-    # 1. Genera la popolazione iniziale
-    population = ea._initialization_population(n_new_configs=5)
-    print("\n🔵 Popolazione iniziale:")
-    for i, config in enumerate(population, 1):
-        print(f"[{i}] {config}")
-
-    # 2. Seleziona i genitori
-    parents = ea._tournament_selection(
-        population=population, parents_selection_rateo=0.4, X=X, y=y, n_splits_cv=3
+    # Esegui l'evoluzione
+    best_result = ea.evolution_process(
+        X=X,
+        y=y,
+        n_splits_cv=5,
+        parents_selection_mechanism="tournament_selection",
+        generation_mechanism="mutation",
+        parents_selection_ratio=0.5,
+        max_generations=20,
     )
-    print("\n🟡 Genitori selezionati (tournament):")
-    for i, config in enumerate(parents, 1):
-        print(f"[{i}] {config}")
-
-    # 3. Genera offsprings tramite mutation
-    offsprings = ea._mutation(parents=parents, population=population)
-    print("\n🟢 Offspring generati tramite mutation:")
-    for i, config in enumerate(offsprings, 1):
-        print(f"[{i}] {config}")
+    print(best_result)
