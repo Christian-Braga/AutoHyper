@@ -62,10 +62,14 @@ class EvolutionaryAlgorithm:
         # Create the initial population
 
         # unpack the given hyperparameters without creating a new ones
+        self.logger.debug("Create the HP configuration")
+
         hp_keys = list(self.hp.keys())
         hp_values = list(self.hp.values())
         param_combinations = list(itertools.product(*hp_values))
         configurations = [dict(zip(hp_keys, combo)) for combo in param_combinations]
+
+        self.logger.debug(f"{len(configurations)} Standard configurations created")
 
         # Create set
         seen_configs = set(frozenset(cfg.items()) for cfg in configurations)
@@ -113,8 +117,10 @@ class EvolutionaryAlgorithm:
                     "n_new_configs must be a non-negative integer or None."
                 )
 
-        for c in configurations:
-            print(c)
+        self.logger.debug(
+            f"{n_new_configs} new random configurations created. Total number of element in the initial population: {len(configurations)}"
+        )
+
         return configurations
 
     # * Fitness Computation Function
@@ -137,6 +143,8 @@ class EvolutionaryAlgorithm:
 
     # > Method for Parent Selection: Neutral Selection
     def _neutral_selection(self, population: list, parents_selection_rateo: float):
+        self.logger.debug("Parent Selection Method: Neutral selection")
+
         number_of_parents = math.ceil(parents_selection_rateo * len(population))
         return random.sample(population, k=number_of_parents)
 
@@ -149,6 +157,7 @@ class EvolutionaryAlgorithm:
         y: pd.DataFrame,
         n_splits_cv: int,
     ):
+        self.logger.debug("Parent Selection Method: Fitness Proportional Selection")
         # compute the fitness
         configurations_fitness: list[dict] = []
         for cfg in population:
@@ -192,6 +201,7 @@ class EvolutionaryAlgorithm:
         y: pd.DataFrame,
         n_splits_cv: int,
     ):
+        self.logger.debug("Parent Selection Method: Tournament Selection")
         # group dimesion fixed at the 10% of the population
         N = len(population)
         k = max(2, min(int(round(0.1 * N)), N))
@@ -218,11 +228,89 @@ class EvolutionaryAlgorithm:
 
     # * Offsprings Generation Functions
 
-    def _crossover(self):
-        pass
+    # VALUTA SE DEPRECARE CROSSOVER, NON HA SENSO PER COME L'HO FATTO ORA
+    def _crossover(
+        self, parents: list[dict], existing_population: list[dict]
+    ) -> list[dict]:
+        offspring = []
+        hp_keys = list(self.hp.keys())
 
-    def _mutation(self):
-        pass
+        # Existing configs
+        seen_configs = set(frozenset(cfg.items()) for cfg in existing_population)
+
+        max_attempts = len(parents) * 10
+        attempts = 0
+
+        while len(offspring) < len(parents) and attempts < max_attempts:
+            p1, p2 = random.sample(parents, k=2)
+            child = {
+                param: p1[param] if random.random() < 0.5 else p2[param]
+                for param in hp_keys
+            }
+
+            frozen = frozenset(child.items())
+            if frozen not in seen_configs:
+                offspring.append(child)
+                seen_configs.add(frozen)
+            attempts += 1
+
+        if len(offspring) < len(parents):
+            self.logger.warning(
+                f"Only {len(offspring)} unique offspring generated from {len(parents)} parents after {attempts} attempts."
+            )
+
+        return offspring
+
+    def _mutation(self, parents: list[dict], population: list[dict]) -> list[dict]:
+        mutated_offspring = []
+        seen_configs = set(frozenset(c.items()) for c in population)
+
+        hp_keys = list(self.hp.keys())
+
+        for parent in parents:
+            max_attempts = 50
+            attempts = 0
+            mutated = None
+
+            while attempts < max_attempts:
+                new_config = {}
+
+                for param in hp_keys:
+                    # Estrai i valori del parametro dalla popolazione
+                    param_values = [c[param] for c in population]
+
+                    if all(isinstance(v, float) for v in param_values):
+                        low = min(param_values)
+                        high = max(param_values)
+                        new_config[param] = round(random.uniform(low, high), 2)
+
+                    elif all(isinstance(v, int) for v in param_values):
+                        min_val = min(param_values)
+                        max_val = max(param_values)
+                        delta = max(1, int(0.2 * (max_val - min_val)))
+                        new_min = max(1, min_val - delta)
+                        new_max = max_val + delta
+                        new_config[param] = random.randint(new_min, new_max)
+
+                    else:
+                        new_config[param] = random.choice(self.hp[param])
+
+                frozen = frozenset(new_config.items())
+                if frozen not in seen_configs:
+                    mutated = new_config
+                    seen_configs.add(frozen)
+                    break
+
+                attempts += 1
+
+            if mutated is not None:
+                mutated_offspring.append(mutated)
+            else:
+                self.logger.warning(
+                    "Mutation failed to generate a unique configuration after max attempts. Skipping."
+                )
+
+        return mutated_offspring
 
     # * Survival Selection Function
 
@@ -256,8 +344,6 @@ class EvolutionaryAlgorithm:
                 population=population, parents_selection_rateo=parents_selection_rateo
             )
 
-            return parents
-
         elif parents_selection_mechanism == "fitness_proportional_selection":
             parents = self._fitness_proportional_selection(
                 population=population,
@@ -266,8 +352,6 @@ class EvolutionaryAlgorithm:
                 y=y,
                 n_splits_cv=n_splits_cv,
             )
-
-            return parents
 
         elif parents_selection_mechanism == "tournament_selection":
             parents = self._tournament_selection(
@@ -278,9 +362,17 @@ class EvolutionaryAlgorithm:
                 n_splits_cv=n_splits_cv,
             )
 
-            return parents
-
         # Step 3: Offsprings Generation
+
+        if generation_mechanism == "crossover":
+            offsprings = self._crossover(
+                parents=parents, existing_population=population
+            )
+            return offsprings
+
+        elif generation_mechanism == "mutation":
+            offsprings = self._mutation(parents=parents, population=population)
+            return offsprings
 
         # Step 4: Survival Selection
 
@@ -289,32 +381,36 @@ if __name__ == "__main__":
     from sklearn.datasets import load_iris
     from sklearn.tree import DecisionTreeClassifier
 
-    # Carica dataset
+    # Carica il dataset
     data = load_iris(as_frame=True)
     X = data.data
     y = data.target
 
-    # Definizione del modello e degli iperparametri da ottimizzare
+    # Definizione del modello e spazio degli iperparametri
     model = DecisionTreeClassifier
     hyperparameters = {"max_depth": [1, 3, 4], "min_samples_split": [3, 5]}
 
-    # Crea istanza dell'algoritmo evolutivo
+    # Istanza dell'algoritmo evolutivo
     ea = EvolutionaryAlgorithm(
         model=model, hyperparameters=hyperparameters, task="classification"
     )
 
-    # Avvia processo evolutivo (inizialmente testiamo solo parent selection)
-    parents = ea.evolution_process(
-        task="classification",
-        X=X,
-        y=y,
-        n_splits_cv=5,
-        parents_selection_mechanism="tournament_selection",
-        generation_mechanism=None,
-        parents_selection_rateo=0.4,  # ad esempio il 40% della popolazione iniziale
-        # n_new_configs=10,  # 10 configurazioni casuali in aggiunta a quelle generate da product
-    )
+    # 1. Genera la popolazione iniziale
+    population = ea._initialization_population(n_new_configs=5)
+    print("\n🔵 Popolazione iniziale:")
+    for i, config in enumerate(population, 1):
+        print(f"[{i}] {config}")
 
-    print("Genitori selezionati:")
-    for p in parents:
-        print(p)
+    # 2. Seleziona i genitori
+    parents = ea._tournament_selection(
+        population=population, parents_selection_rateo=0.4, X=X, y=y, n_splits_cv=3
+    )
+    print("\n🟡 Genitori selezionati (tournament):")
+    for i, config in enumerate(parents, 1):
+        print(f"[{i}] {config}")
+
+    # 3. Genera offsprings tramite mutation
+    offsprings = ea._mutation(parents=parents, population=population)
+    print("\n🟢 Offspring generati tramite mutation:")
+    for i, config in enumerate(offsprings, 1):
+        print(f"[{i}] {config}")
