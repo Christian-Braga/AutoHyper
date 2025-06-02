@@ -38,6 +38,7 @@ from src.visualizations import (
 # HPO methods
 from src.hpo_methods import GridSearch
 from src.hpo_methods import RandomSearch
+from src.hpo_methods import EvolutionaryAlgorithm
 
 
 # > Hyperparameter Optimizer
@@ -64,9 +65,16 @@ class HPO:
             )
 
         # HPO methods
-        self.available_methods = ["grid_search", "random_search"]
+        self.available_methods = [
+            "grid_search",
+            "random_search",
+            "evolutionary_algorithm",
+        ]
         self.grid_search_method = GridSearch(hyperparameters=self.hp)
         self.random_search_method = RandomSearch(hyperparameters=self.hp)
+        self.ea = EvolutionaryAlgorithm(
+            model=model, hyperparameters=self.hp, task=self.task
+        )
 
         # Logger
         self.logger = get_logger("HPO")
@@ -145,7 +153,7 @@ class HPO:
     # > Main functions
 
     # Grid search
-    def grid_search(self, X, y, n_splits, n_trials: Optional[int] = None):
+    def grid_search(self, X, y, n_splits):
         self.logger.info("Starting Grid Search...")
 
         hyperparameters_configs = self.grid_search_method.grid_combinations()
@@ -235,8 +243,24 @@ class HPO:
     # Evolutionary Algorithm
     def evolutionary_algorithm(
         self,
+        X,
+        y,
+        n_splits_cv,
+        parents_selection_mechanism,
+        generation_mechanism,
+        parents_selection_ratio,
+        max_generations,
     ):
-        pass
+        best_config_EA = self.ea.evolution_process(
+            X=X,
+            y=y,
+            n_splits_cv=n_splits_cv,
+            parents_selection_mechanism=parents_selection_mechanism,
+            generation_mechanism=generation_mechanism,
+            parents_selection_ratio=parents_selection_ratio,
+            max_generations=max_generations,
+        )
+        return best_config_EA
 
     # Plot results of the tuning loop
     def plot_results(self):
@@ -262,6 +286,10 @@ class HPO:
         outer_k: int,
         inner_k: int,
         n_trials: Optional[int] = None,
+        parents_selection_mechanism: Optional[str] = None,
+        generation_mechanism: Optional[str] = None,
+        parents_selection_ratio: Optional[float] = None,
+        max_generations: Optional[int] = None,
         shuffle=True,
     ):
         """
@@ -304,17 +332,35 @@ class HPO:
                 raise Exception(error_msg)
             elif hpo_method == "grid_search":
                 hpo_technique = self.grid_search
+                # Call the HPO method and obtain the best configuration in the inner_cv loop
+                best_config_inner_cv = hpo_technique(
+                    X=X_outer_train,
+                    y=y_outer_train,
+                    n_splits=inner_k,
+                )
+            elif hpo_method == "evolutionary_algorithm":
+                hpo_technique = self.evolutionary_algorithm
+                best_config_inner_cv = hpo_technique(
+                    X=X_outer_train,
+                    y=y_outer_train,
+                    n_splits_cv=inner_k,
+                    parents_selection_mechanism=parents_selection_mechanism,
+                    generation_mechanism=generation_mechanism,
+                    parents_selection_ratio=parents_selection_ratio,
+                    max_generations=max_generations,
+                )
             elif hpo_method == "random_search":
                 hpo_technique = self.random_search
+                best_config_inner_cv = hpo_technique(
+                    X=X_outer_train,
+                    y=y_outer_train,
+                    n_splits=inner_k,
+                    n_trials=n_trials,
+                )
                 if n_trials is None:
                     error_msg = "To use the random search method you need to specify the number of hyperparameter configurations you want to try"
                     self.logger.error(error_msg)
                     raise ValueError(error_msg)
-
-            # Call the HPO method and obtain the best configuration in the inner_cv loop
-            best_config_inner_cv = hpo_technique(
-                X=X_outer_train, y=y_outer_train, n_splits=inner_k, n_trials=n_trials
-            )
 
             # End timing
             elapsed_time = time.time() - start_time
@@ -593,4 +639,14 @@ if __name__ == "__main__":
     )
 
     # test run
-    print(test_hpo.hp_tuning(hpo_method="grid_search", outer_k=5, inner_k=3))
+    print(
+        test_hpo.hp_tuning(
+            hpo_method="evolutionary_algorithm",
+            outer_k=5,
+            inner_k=3,
+            parents_selection_mechanism="tournament_selection",
+            generation_mechanism="mutation",
+            parents_selection_ratio=0.5,
+            max_generations=20,
+        )
+    )

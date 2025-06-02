@@ -38,11 +38,22 @@ class EvolutionaryAlgorithm:
 
     # Validator
     def _is_valid_config(self, cfg: Dict) -> bool:
-        # True se il modello accetta la configurazione (nessuna eccezione).
+        """
+        Ritorna True se il modello accetta i parametri di cfg.
+        Funziona anche con estimator non clonabili (es. XGBoost, LightGBM…).
+        """
         try:
-            _ = self.model(**cfg)
+            # 1. Prendi la classe dell’estimator originale
+            ModelCls = self.model.__class__
+
+            # 2. Parti dai parametri di default dell’istanza originale
+            base_params = getattr(self.model, "get_params", lambda: {})()
+
+            # 3. Crea una nuova istanza fondendo i parametri base con quelli di cfg
+            ModelCls(**{**base_params, **cfg})
             return True
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
+            self.logger.debug(f"Invalid config {cfg} -> {type(e).__name__}: {e}")
             return False
 
     # Population Initialization
@@ -57,7 +68,7 @@ class EvolutionaryAlgorithm:
             for cfg in (dict(zip(hp_keys, combo)) for combo in param_combinations)
             if self._is_valid_config(cfg)
         ]
-        self.logger.debug(f"{len(configurations)} standard configs created")
+        self.logger.info(f"Initial population size: {len(configurations)}")
 
         seen_configs = {frozenset(c.items()) for c in configurations}
 
@@ -101,7 +112,12 @@ class EvolutionaryAlgorithm:
         if key in self._fitness_cache:
             return self._fitness_cache[key]
 
-        model_instance = self.model(**configuration)
+        model_instance = self.model.__class__(
+            **{**self.model.get_params(), **configuration}
+        )
+
+        model_instance.set_params(**configuration)
+
         scoring = "accuracy" if self.task == "classification" else "r2"
         scores = cross_val_score(model_instance, X, y, cv=n_splits_cv, scoring=scoring)
 
@@ -115,9 +131,14 @@ class EvolutionaryAlgorithm:
         evaluated = []
         for cfg in pop:
             if not self._is_valid_config(cfg):
-                self.logger.debug("Invalid config skipped")
+                self.logger.warning(f"Invalid config skipped: {cfg}")
                 continue
             evaluated.append(self._fitness_computation(cfg, X, y, cv))
+
+        if not evaluated:
+            self.logger.error("All configurations in the population are invalid.")
+            raise RuntimeError("Population evaluation failed: no valid configurations.")
+
         return evaluated
 
     # Parent Selection
@@ -148,34 +169,46 @@ class EvolutionaryAlgorithm:
             parents.append(best["config"])
         return parents
 
-    # Mutation (only mechanism kept per brevità)
     def _mutation(self, parents: List[Dict], population: List[Dict]) -> List[Dict]:
         offspring, seen = [], {frozenset(c.items()) for c in population}
         hp_keys = list(self.hp.keys())
 
         for parent in parents:
-            attempts = mutated = 0
-            while attempts < 50 and mutated is None:
-                child = {}
+            attempts = 0
+            while attempts < 100:
+                child = parent.copy()
                 for p in hp_keys:
-                    pop_vals = [c[p] for c in population]
-                    if all(isinstance(v, float) for v in pop_vals):
-                        child[p] = round(
-                            random.uniform(min(pop_vals), max(pop_vals)), 2
-                        )
-                    elif all(isinstance(v, int) for v in pop_vals):
-                        lo, hi = min(pop_vals), max(pop_vals)
-                        delta = max(1, int(0.2 * (hi - lo)))
-                        child[p] = random.randint(lo, hi + delta)
-                    else:
-                        child[p] = random.choice(self.hp[p])
+                    if random.random() < 0.5:
+                        pop_vals = [c[p] for c in population]
+                        parent_val = parent[p]
+
+                        if all(isinstance(v, float) for v in pop_vals):
+                            # Mutazione solo verso l'alto
+                            max_val = max(pop_vals)
+                            delta = 0.2 * (max_val - parent_val or 1.0)
+                            new_val = parent_val + abs(delta)
+                            child[p] = round(random.uniform(parent_val, new_val), 4)
+
+                        elif all(isinstance(v, int) for v in pop_vals):
+                            max_val = max(pop_vals)
+                            delta = max(1, int(0.2 * (max_val - parent_val or 1)))
+                            new_val = parent_val + random.randint(1, delta)
+                            child[p] = new_val
+
+                        else:
+                            # Categoria: seleziona un valore diverso ma "successivo"
+                            choices = [v for v in self.hp[p] if v != parent_val]
+                            if choices:
+                                child[p] = random.choice(choices)
 
                 frozen = frozenset(child.items())
-                if self._is_valid_config(child) and frozen not in seen:
+                if frozen not in seen and self._is_valid_config(child):
                     offspring.append(child)
                     seen.add(frozen)
-                    mutated = child
+                    break  # valid child trovato, esci dal while
                 attempts += 1
+            else:
+                self.logger.debug(f"No valid upward mutation for parent {parent}")
         return offspring
 
     # Survival (μ + λ)
@@ -194,6 +227,12 @@ class EvolutionaryAlgorithm:
         return np.std([d["fitness"] for d in eval_pop])
 
     def _track_stats(self, gen: int, eval_pop: List[Dict]):
+        if not eval_pop:
+            self.logger.warning(
+                f"Generation {gen}: population is empty, skipping stats tracking."
+            )
+            return
+
         fit = [d["fitness"] for d in eval_pop]
         stats = {
             "generation": gen,
@@ -274,8 +313,11 @@ if __name__ == "__main__":
     y = data.target
 
     # Definizione del modello e spazio degli iperparametri
-    model = DecisionTreeClassifier
-    hyperparameters = {"max_depth": [1, 3, 4], "min_samples_split": [3, 5]}
+    model = DecisionTreeClassifier()
+    hyperparameters = {
+        "max_depth": [1, 3, 4],
+        "min_samples_split": [2, 3, 4, 5],  # rimosso 1
+    }
 
     # Istanza dell'algoritmo evolutivo
     ea = EvolutionaryAlgorithm(
