@@ -258,7 +258,6 @@ class EvolutionaryAlgorithm:
         y: pd.DataFrame,
         n_splits_cv: int,
         parents_selection_mechanism: str,
-        generation_mechanism: str,
         parents_selection_ratio: float,
         n_new_configs: Optional[int] = None,
         max_generations: int = 10,
@@ -284,10 +283,7 @@ class EvolutionaryAlgorithm:
                 raise ValueError("Unknown parent selection mechanism.")
 
             # offspring generation (only mutation shown)
-            if generation_mechanism == "mutation":
-                offspring = self._mutation(parents, [d["config"] for d in eval_pop])
-            else:
-                offspring = []  # placeholder
+            offspring = self._mutation(parents, [d["config"] for d in eval_pop])
 
             eval_off = self._evaluate_population(offspring, X, y, n_splits_cv)
 
@@ -330,7 +326,6 @@ if __name__ == "__main__":
         y=y,
         n_splits_cv=5,
         parents_selection_mechanism="tournament_selection",
-        generation_mechanism="mutation",
         parents_selection_ratio=0.5,
         max_generations=20,
     )

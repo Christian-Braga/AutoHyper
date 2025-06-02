@@ -247,18 +247,18 @@ class HPO:
         y,
         n_splits_cv,
         parents_selection_mechanism,
-        generation_mechanism,
         parents_selection_ratio,
         max_generations,
+        n_new_configs=None,
     ):
         best_config_EA = self.ea.evolution_process(
             X=X,
             y=y,
             n_splits_cv=n_splits_cv,
             parents_selection_mechanism=parents_selection_mechanism,
-            generation_mechanism=generation_mechanism,
             parents_selection_ratio=parents_selection_ratio,
             max_generations=max_generations,
+            n_new_configs=n_new_configs,
         )
         return best_config_EA
 
@@ -287,9 +287,9 @@ class HPO:
         inner_k: int,
         n_trials: Optional[int] = None,
         parents_selection_mechanism: Optional[str] = None,
-        generation_mechanism: Optional[str] = None,
         parents_selection_ratio: Optional[float] = None,
         max_generations: Optional[int] = None,
+        n_new_configs: Optional[int] = None,
         shuffle=True,
     ):
         """
@@ -338,6 +338,9 @@ class HPO:
                     y=y_outer_train,
                     n_splits=inner_k,
                 )
+                # Remove 'fitness' key if present
+                best_config_inner_cv.pop("fitness", None)
+
             elif hpo_method == "evolutionary_algorithm":
                 hpo_technique = self.evolutionary_algorithm
                 best_config_inner_cv = hpo_technique(
@@ -345,10 +348,13 @@ class HPO:
                     y=y_outer_train,
                     n_splits_cv=inner_k,
                     parents_selection_mechanism=parents_selection_mechanism,
-                    generation_mechanism=generation_mechanism,
                     parents_selection_ratio=parents_selection_ratio,
                     max_generations=max_generations,
+                    n_new_configs=n_new_configs,
                 )
+
+                best_config_inner_cv.pop("fitness", None)
+
             elif hpo_method == "random_search":
                 hpo_technique = self.random_search
                 best_config_inner_cv = hpo_technique(
@@ -357,9 +363,13 @@ class HPO:
                     n_splits=inner_k,
                     n_trials=n_trials,
                 )
+
+                best_config_inner_cv.pop("fitness", None)
+
                 if n_trials is None:
                     error_msg = "To use the random search method you need to specify the number of hyperparameter configurations you want to try"
                     self.logger.error(error_msg)
+
                     raise ValueError(error_msg)
 
             # End timing
@@ -623,9 +633,9 @@ if __name__ == "__main__":
     data_features = X
     data_target = y
     hp_values = {
-        "max_depth": [1, 3, 5],
+        "max_depth": [1, 3],
         "learning_rate": [0.01, 0.1, 0.2],
-        "n_estimators": [10, 30, 50],
+        "n_estimators": [10, 30],
     }
     task = "regression"
 
@@ -644,9 +654,9 @@ if __name__ == "__main__":
             hpo_method="evolutionary_algorithm",
             outer_k=5,
             inner_k=3,
-            parents_selection_mechanism="tournament_selection",
-            generation_mechanism="mutation",
+            parents_selection_mechanism="fitness_proportional_selection",
             parents_selection_ratio=0.5,
             max_generations=20,
+            n_new_configs=10,
         )
     )
