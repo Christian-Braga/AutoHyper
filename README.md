@@ -1,4 +1,4 @@
-# * Package Name: AutoHyper
+# Package Name: AutoHyper
 
 **AutoHyper** is a **lightweight** and **highly-customizable** framework for hyperparameter optimization on tabular-data machine-learning models and neural networks.
 
