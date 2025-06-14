@@ -11,6 +11,7 @@ AutoHyper is designed to:
 
 - 1. Provide a **clear and consistent interface** for different HPO strategies:
   at the moment `grid search`, `random search`, and `evolutionary algorithms`.
+  (see the Example notebook to have more information about this optimization methods: )
 
 - 2. Leverage **nested cross-validation** to deliver **robust and unbiased** estimates of out-of-sample model performance.
 
