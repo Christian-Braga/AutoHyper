@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 After installation, you can import the main optimization class like this:
 
-```bash
+```python
 from autohyper import HPO
 ```
 

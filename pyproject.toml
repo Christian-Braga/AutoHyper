@@ -1,3 +1,37 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "autohyper"
+version = "0.1.0"
+description = "Lightweight and modular hyperparameter optimization framework for machine learning models."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+authors = [
+  { name = "Christian Braga", email = "braga.ch22@gmail.com" }
+]
+
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "scikit-learn>=1.6",
+  "xgboost>=3.0",
+  "matplotlib>=3.10",
+  "seaborn>=0.13",
+  "joblib>=1.5"
+]
+
+[project.optional-dependencies]
+dev = [
+  "jupyterlab",
+  "notebook",
+  "pytest",
+  "pipreqs"
+]
+
+[project.urls]
+Repository = "https://github.com/Christian-Braga/AutoHyper"
+Documentation = "https://github.com/Christian-Braga/AutoHyper/blob/main/Tests/01_basic_HPO.ipynb"
