@@ -28,9 +28,9 @@ from utils.logger import get_logger
 
 
 # HPO methods
-from src.autohyper.hpo_methods import GridSearch
-from src.autohyper.hpo_methods import RandomSearch
-from src.autohyper.hpo_methods import EvolutionaryAlgorithm
+from .hpo_methods import GridSearch
+from .hpo_methods import RandomSearch
+from .hpo_methods import EvolutionaryAlgorithm
 
 
 # > Hyperparameter Optimizer

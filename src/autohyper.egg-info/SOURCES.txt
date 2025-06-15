@@ -13,3 +13,5 @@ src/autohyper/hpo_methods/bayesian_optimization.py
 src/autohyper/hpo_methods/evolutionary_algorithm.py
 src/autohyper/hpo_methods/grid_search.py
 src/autohyper/hpo_methods/random_search.py
+src/utils/__init__.py
+src/utils/logger.py
