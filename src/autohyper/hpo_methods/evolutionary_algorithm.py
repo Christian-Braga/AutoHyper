@@ -40,7 +40,7 @@ class EvolutionaryAlgorithm:
     def _is_valid_config(self, cfg: Dict) -> bool:
         """
         Ritorna True se il modello accetta i parametri di cfg.
-        Funziona anche con estimator non clonabili (es. XGBoost, LightGBM…).
+        Funziona anche con estitor non clonabili (es. XGBoost, LightGBM…).
         """
         try:
             # 1. Prendi la classe dell’estimator originale
@@ -183,20 +183,25 @@ class EvolutionaryAlgorithm:
                         parent_val = parent[p]
 
                         if all(isinstance(v, float) for v in pop_vals):
-                            # Mutazione solo verso l'alto
+                            min_val = min(pop_vals)
                             max_val = max(pop_vals)
-                            delta = 0.2 * (max_val - parent_val or 1.0)
-                            new_val = parent_val + abs(delta)
-                            child[p] = round(random.uniform(parent_val, new_val), 4)
+                            delta = 0.2 * (max_val - min_val or 1.0)
+                            new_val = parent_val + random.uniform(-delta, delta)
+                            new_val = min(
+                                max(min_val, new_val), max_val
+                            )  # clamp to [min_val, max_val]
+                            child[p] = round(new_val, 4)
 
                         elif all(isinstance(v, int) for v in pop_vals):
+                            min_val = min(pop_vals)
                             max_val = max(pop_vals)
-                            delta = max(1, int(0.2 * (max_val - parent_val or 1)))
-                            new_val = parent_val + random.randint(1, delta)
+                            delta = max(1, int(0.2 * (max_val - min_val)))
+                            new_val = parent_val + random.randint(-delta, delta)
+                            new_val = min(max(min_val, new_val), max_val)
                             child[p] = new_val
 
                         else:
-                            # Categoria: seleziona un valore diverso ma "successivo"
+                            # Categorical: pick a different value from the space
                             choices = [v for v in self.hp[p] if v != parent_val]
                             if choices:
                                 child[p] = random.choice(choices)
