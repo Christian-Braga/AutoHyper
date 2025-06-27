@@ -305,9 +305,9 @@ class HPO:
                 error_msg = f"The selected HPO technique is not available, the available methods are: {self.available_methods}"
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
+
             elif hpo_method == "grid_search":
                 hpo_technique = self.grid_search
-                # Call the HPO method and obtain the best configuration in the inner_cv loop
                 best_config_inner_cv = hpo_technique(
                     X=X_outer_train,
                     y=y_outer_train,
@@ -328,7 +328,8 @@ class HPO:
                     n_new_configs=n_new_configs,
                 )
 
-                best_config_inner_cv.pop("fitness", None)
+                if "config" in best_config_inner_cv:
+                    best_config_inner_cv = best_config_inner_cv["config"]
 
             elif hpo_method == "random_search":
                 hpo_technique = self.random_search
