@@ -1,5 +1,8 @@
 # AutoHyper
 
+![AutoHyper Logo](logo/autohyper_logo.png)
+
+
 **AutoHyper** is a Python package designed to facilitate hyperparameter optimization (HPO) for supervised learning models on **tabular data**.  
 It serves as a **lightweight, modular, and fully customizable** alternative, giving you **fine-grained control** over the entire tuning and validation process.
 
