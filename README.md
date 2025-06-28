@@ -1,4 +1,4 @@
-# 🌟 AutoHyper
+# AutoHyper
 
 **AutoHyper** is a Python package designed to facilitate hyperparameter optimization (HPO) for supervised learning models on **tabular data**.  
 It serves as a **lightweight, modular, and fully customizable** alternative, giving you **fine-grained control** over the entire tuning and validation process.
@@ -44,7 +44,7 @@ To use deep learning models: (at the moment)
 - **Regression**: using metrics like `R²`, `MSE`
 - **Classification**: using metrics like `Accuracy`, `Precision`, `Recall`, `F1`
 
-> 📌 Currently supports only **tabular datasets** (`pandas.DataFrame` + `Series`).
+> Currently supports only **tabular datasets** (`pandas.DataFrame` + `Series`).
 
 ---
 
@@ -61,7 +61,7 @@ This results in **robust and unbiased** performance estimation.
 
 ---
 
-## 📏 Evaluation & Ranking
+##  Evaluation & Ranking
 
 AutoHyper selects the best configuration using a **weighted scoring function** that balances performance and robustness:
 
@@ -69,7 +69,7 @@ AutoHyper selects the best configuration using a **weighted scoring function** t
 Weighted Score = 0.7 × Performance Score + 0.3 × Normalized Frequency
 ```
 
-## 📦 Final Output Includes
+## Final Output Includes
 
 -  **Best configuration** based on the **weighted score**
 -  **Most frequently selected configuration** across outer folds
@@ -82,14 +82,9 @@ Weighted Score = 0.7 × Performance Score + 0.3 × Normalized Frequency
 
 ```bash
 # install directly from GitHub
-pip install git+https://github.com/<Christian-Braga>/AutoHyper.git
+pip install git+https://github.com/Christian-Braga/AutoHyper.git
 ```
-
-If you have cloned the repository locally, make sure to install all required dependencies by running:
-
-```bash
-pip install -r requirements.txt
-```
+This will install the latest version of the package along with all required dependencies.
 
 After installation, you can import the main optimization class like this:
 
@@ -100,46 +95,48 @@ from autohyper import HPO
 
 ## Usage Example
 
+you can find more information in the 
+
 ```python
 from autohyper import HPO
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.datasets import load_boston
+from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
 
 # Load data
-X, y = load_boston(return_X_y=True)
-X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2)
+X, y = fetch_california_housing(return_X_y=True)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Define model and search space
+# Define model and hyperparameter space
 model = RandomForestRegressor()
-param_grid = {
+hp_values = {
     "n_estimators": [50, 100, 200],
-    "max_depth": [None, 10, 20],
+    "max_depth": [10, 20, 30],
 }
 
-# Initialize HPO
+# Create HPO instance
 hpo = HPO(
     model=model,
-    X_train=X_train, y_train=y_train,
-    X_val=X_val,   y_val=y_val,
+    data_features=X_train,
+    data_target=y_train,
+    hp_values=hp_values,
+    task="regression",
 )
 
-# Run grid search
-best_model, best_params = hpo.grid_search(param_grid)
-print("Best hyperparameters:", best_params)
-#CORREGGI TUTTO QUESTO E' SBAGLIATO
+# Run hyperparameter optimization using random search
+results = hpo.hp_tuning(
+    hpo_method="random_search",
+    outer_k=5,
+    inner_k=3,
+    n_trials=20,
+)
 ```
 
-## Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests if you:
-
-- Add new optimization strategies
-
-- Improve documentation or examples
-
-- Fix bugs or enhance performance
-
-Please follow the standard GitHub workflow: fork → branch → pull request.
 
 ## Future Improvment
+* Introduce **multiprocessing** to parallelize computations and improve optimization runtime
+* Implement a **Bayesian Optimization** mechanism with different acquisition functions (using **Random Forest** as surrogate model – still considering whether to implement **Gaussian Process** as well)
+* Implement **visualization tools** to analyze optimization results (e.g., **Parallel Coordinate Plot**) and methods to investigate hyperparameter importance (e.g., **Ablation Study**)
+* Implement **multi-objective optimization** mechanisms (e.g., **Hypervolume Indicator**, **Pareto Front**)
+* Evaluate the integration of **Meta-Learning strategies**
