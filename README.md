@@ -95,7 +95,7 @@ from autohyper import HPO
 
 ## Usage Example
 
-you can find more information in the 
+For more detailed examples and explanations, see the [Docs.ipynb](https://github.com/Christian-Braga/AutoHyper/blob/main/Docs.ipynb) notebook included in the repository.
 
 ```python
 from autohyper import HPO

@@ -11,7 +11,7 @@ from collections import Counter
 from typing import Optional
 import numpy as np
 import pandas as pd
-import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.base import clone
 from sklearn.datasets import fetch_california_housing
 from sklearn.metrics import (
@@ -605,7 +605,7 @@ if __name__ == "__main__":
     y = pd.Series(y, name="target")
 
     # attribute values
-    model = xgb.XGBRegressor()
+    model = RandomForestRegressor()
     data_features = X
     data_target = y
     hp_values = {

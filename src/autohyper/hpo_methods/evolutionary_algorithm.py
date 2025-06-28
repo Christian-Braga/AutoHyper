@@ -9,8 +9,6 @@ from sklearn.model_selection import cross_val_score
 from utils.logger import get_logger
 import random
 import math
-import matplotlib.pyplot as plt
-import seaborn as sns
 from collections import defaultdict
 
 

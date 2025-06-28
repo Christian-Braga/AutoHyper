@@ -16,7 +16,6 @@ setup(
         "pandas==2.2.3",
         "scikit-learn==1.6.1",
         "seaborn==0.13.2",
-        "xgboost==3.0.2",
     ],
     python_requires=">=3.11",
 )
