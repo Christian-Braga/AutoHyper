@@ -139,6 +139,7 @@ results = hpo.hp_tuning(
 
 
 ## Future Improvment
+* Review the structure of the library to improve modularity, ease of extension and user experience.
 * Introduce **multiprocessing** to parallelize computations and improve optimization runtime
 * Implement a **Bayesian Optimization** mechanism with different acquisition functions (using **Random Forest** as surrogate model – still considering whether to implement **Gaussian Process** as well)
 * Implement **visualization tools** to analyze optimization results (e.g., **Parallel Coordinate Plot**) and methods to investigate hyperparameter importance (e.g., **Ablation Study**)
